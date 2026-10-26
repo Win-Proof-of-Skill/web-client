@@ -3,9 +3,9 @@
 // Keep netid/netids aligned with the selected gateway; do not mix development and public networks.
 const network = {
   "name": "WIN",
-  "netid": "f4ad1838b012fe4af28cfbcc01c30044e3e225ef6be7e8461343d1de369949d9",
+  "netid": "79c84dc9448c0069b6866af47d0f6746f0c4b60c4c66f8c9a675765d1c75c971",
   "netids": [
-    "f4ad1838b012fe4af28cfbcc01c30044e3e225ef6be7e8461343d1de369949d9"
+    "79c84dc9448c0069b6866af47d0f6746f0c4b60c4c66f8c9a675765d1c75c971"
   ],
   "gateways": [
     {
