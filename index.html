@@ -11,14 +11,14 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content"
     />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#006c35" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="mobile-web-app-capable" content="yes" />
 
     <!-- Add these new meta tags for splash screen -->
-    <link rel="apple-touch-icon" href="./media/liberdus_logo_512.png" />
-    <meta name="apple-mobile-web-app-title" content="Liberdus" />
+    <link rel="apple-touch-icon" href="./media/win-logo.svg" />
+    <meta name="apple-mobile-web-app-title" content="WIN Proof of Skill" />
 
     <!-- Cache control meta tags for offline functionality -->
     <!-- set for a year -->
@@ -53,7 +53,7 @@
       media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
     />
 
-    <title>Liberdus</title>
+    <title>WIN — Proof of Skill</title>
     <!--
       QRCode lib from
       https://github.com/davidshimjs/qrcodejs
@@ -61,7 +61,10 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
+    <script src="./win-payments.js"></script>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./win-theme.css" />
+    <link rel="icon" type="image/svg+xml" href="./media/win-logo.svg" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
@@ -71,19 +74,19 @@
     <div class="container">
       <div class="boot-splash" id="bootSplash" aria-hidden="true">
         <div class="boot-splash-halo" aria-hidden="true"></div>
-        <img class="boot-splash-logo" src="./media/liberdus_logo_250.png" alt="" />
-        <h1 class="boot-splash-name"><span id="bootSplashBrandTitle" class="boot-splash-title-text">Liberdus</span></h1>
+        <img class="boot-splash-logo" src="./media/win-logo.svg" alt="" />
+        <h1 class="boot-splash-name"><span id="bootSplashBrandTitle" class="boot-splash-title-text">WIN</span></h1>
       </div>
 
       <header class="header" id="header">
         <div id="logo">
-          <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link"
-            ><img src="./media/liberdus_logo_50.png"
+          <a href="https://win-pskill.com" target="_blank" rel="noopener noreferrer" title="Visit WIN Proof of Skill" class="logo-link"
+            ><img src="./media/win-logo.svg"
           /></a>
         </div>
         <div class="app-name-container">
           <div class="app-name-avatar"></div>
-          <div class="app-name">Liberdus</div>
+          <div class="app-name">WIN</div>
         </div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
@@ -101,16 +104,19 @@
       </header>
 
       <div class="welcome-screen is-booting" id="welcomeScreen">
-        <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link">
-          <img src="./media/liberdus_logo_250.png" alt="Liberdus Logo" style="margin-bottom: 20px" />
+        <a href="https://win-pskill.com" target="_blank" rel="noopener noreferrer" title="Visit WIN Proof of Skill" class="logo-link">
+          <img src="./media/win-logo.svg" alt="WIN Proof of Skill emblem" style="margin-bottom: 20px" />
         </a>
         <h1>
-          <span id="welcomeBrandTitle">Liberdus</span><br />
+          <span id="welcomeBrandTitle">WIN</span><br />
           <div style="font-size: 0.8rem; margin-top: 1px; text-align: center" id="networkNameDisplay"></div>
         </h1>
+        <p class="win-welcome-tagline">PROOF OF SKILL</p>
+        <h2 class="win-welcome-heading">Let your work<br>speak for you.</h2>
+        <p class="win-welcome-copy">Your wallet. Your skills. Your reputation.<br>A verifiable record of what you bring to the world.</p>
         <div class="welcome-buttons">
           <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign In</button>
-          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
+          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create your wallet</button>
           <button id="openWelcomeMenu" class="btn btn--secondary btn--pill btn--full hidden">Menu</button>
         </div>
         <div class="welcome-version" aria-label="Version information">
@@ -172,8 +178,10 @@
       <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
+        <section class="win-wallet-intro"><span class="win-kicker">YOUR WIN WALLET</span><h2>Built for your next chapter.</h2><p>One identity. Separate balances on WIN and BNB Chain.</p></section>
+        <section class="win-wallet-identity"><label>Native WIN public address</label><code id="winNativeAddress"></code><button type="button" class="win-link-button" data-win-action="copy-native">Copy address</button></section>
         <div class="wallet-heading">
-          <h2>Wallet</h2>
+          <h2>Native WIN</h2>
           <div class="wallet-balance-status">
             <button type="button" class="refresh-button" id="refreshBalance" aria-label="Refresh wallet balances">↻</button>
             <time id="walletBalanceUpdated">Not updated yet</time>
@@ -189,7 +197,7 @@
             <!-- List of native assets will be inserted here -->
           </div>
         </div>
-        <div class="wallet-actions" role="group" aria-label="Liberdus actions">
+        <div class="wallet-actions" role="group" aria-label="Native WIN actions">
           <button type="button" class="wallet-action-button" id="openSendAssetFormModal">
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Send</span>
@@ -203,11 +211,11 @@
             <span class="action-label">History</span>
           </button>
           <div class="wallet-actions-break"></div>
-          <button type="button" class="wallet-action-button" id="openBuyButton" aria-label="Buy LIB (opens in a new tab)">
+          <button type="button" class="wallet-action-button" id="openBuyButton" aria-label="Buy WIN (opens in a new tab)">
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Buy</span>
           </button>
-          <button type="button" class="wallet-action-button" id="openSellButton" aria-label="Sell LIB (opens in a new tab)">
+          <button type="button" class="wallet-action-button" id="openSellButton" aria-label="Sell WIN (opens in a new tab)">
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Sell</span>
           </button>
@@ -234,10 +242,28 @@
             </button>
           </div>
         </div>
+        <section class="win-bnb-card"><div class="win-card-top"><span class="win-kicker">BNB CHAIN · MAINNET</span><button class="win-link-button" data-win-action="bnb-refresh" aria-label="Refresh BNB-chain WIN balance">↻ Refresh</button></div><h2>WIN on BNB Chain</h2><strong class="win-bnb-balance" id="winBnbBalance">Not loaded</strong><p>Fund your wallet with the real WIN token.</p><label>BNB receiving address</label><code id="winBnbAddress"></code><div class="win-actions"><button class="win-button" data-win-action="fund">+ Fund wallet</button><button class="win-button secondary" data-win-action="copy-bnb">Copy address</button></div><p class="win-help">BNB-chain WIN and native WIN are separate balances. A bridge is required to move funds between networks. Native fees need native WIN.</p><a href="https://bscscan.com/token/0x8a27363dd26f78b09014338e106b16055fcb9799" target="_blank" rel="noopener noreferrer">View WIN token contract ↗</a><div id="winBnbHistory"></div></section>
       </div>
 
+      <section class="app-screen win-screen" id="profilesScreen" data-view="profiles" aria-label="Profile directory">
+        <div class="win-hero"><div><span class="win-kicker">THE PROOF IS IN YOUR WORK</span><h1>Your work.<br><em>Your proof.</em></h1><p>Turn experience into a reputation you own.<br>Discover people. Recognize skills. Build trust.</p><button class="win-button light" data-win-action="create-profile">+ Create your profile</button></div><img src="./media/win-logo.svg" alt="WIN geometric emblem" class="win-hero-emblem"><span class="win-hero-caption">WIN / PROOF OF SKILL</span></div>
+        <div class="win-stats"><div><strong id="winOwnedCount">—</strong><span>Your profiles</span></div><div><strong id="winSkillCount">—</strong><span>Registered skills</span></div><div><strong>Yours.</strong><span>Your work, your identity</span></div></div>
+        <div class="win-section-heading"><div><span class="win-kicker">THE WIN DIRECTORY</span><h2>Find your people.</h2></div><button class="win-link-button" data-win-action="register-skill">+ Register a skill</button></div>
+        <form id="winSearchForm" class="win-search"><span aria-hidden="true">⌕</span><input id="winSearch" aria-label="Search profiles by title or skill" placeholder="Search by name, title, or skill…" maxlength="250" autocomplete="off"><button type="submit" class="win-button">Search</button></form>
+        <div class="win-list-toolbar"><div class="win-segments"><button type="button" class="selected" data-win-action="all">Explore profiles</button><button type="button" data-win-action="mine">My profiles</button></div><span id="winResultCount"></span></div>
+        <div id="winProfiles" class="win-profile-grid"></div><button class="win-button secondary win-more" id="winMore" data-win-action="more" hidden>Load more profiles</button>
+      </section>
+      <section class="app-screen win-screen" id="contractsScreen" data-view="contracts" aria-label="Work contracts">
+        <div class="win-page-heading"><div><span class="win-kicker">SIGNED. SHARED. RECOGNIZED.</span><h1>Work with trust.</h1><p>Agree on the work. Sign the terms. Build your proof.</p></div><button class="win-button" data-win-action="create-contract">+ Create contract</button></div>
+        <div class="win-callout"><span aria-hidden="true">◎</span><p>Contracts connect your skills to real work. Both sides sign the same terms, and completed outcomes build your proof score.</p></div>
+        <div class="win-section-heading"><h2>Your contracts & approvals</h2><button class="win-link-button" data-win-action="refresh">↻ Refresh</button></div><div id="winContracts" class="win-profile-grid"></div>
+      </section>
+      <p id="winStatus" class="win-status" role="status" aria-live="polite"></p>
+      <dialog id="winDialog" class="win-dialog" aria-labelledby="winDialogTitle"><div class="win-dialog-header"><h2 id="winDialogTitle"></h2><button type="button" data-close aria-label="Close dialog">×</button></div><div class="win-dialog-body"></div><p class="win-dialog-error" role="alert"></p></dialog>
       <footer class="footer" id="footer">
         <div class="nav-buttons">
+          <button class="nav-button" id="switchToProfiles" data-win-view="profiles">Profiles</button>
+          <button class="nav-button" id="switchToContracts" data-win-view="contracts">Contracts</button>
           <button class="nav-button" id="switchToChats">Chats</button>
           <button class="nav-button" id="switchToContacts">Contacts</button>
           <button class="nav-button" id="switchToWallet">Wallet</button>
@@ -922,7 +948,7 @@
         <div class="modal-content">
           <div class="form-container">
             <div style="padding: 1rem">
-              <p>Now you can earn LIB for being a liquidity provider.</p>
+              <p>Now you can earn WIN for being a liquidity provider.</p>
               <div class="form-actions">
                 <button id="continueToFarm" class="btn btn--primary btn--pill btn--full">Continue</button>
               </div>
@@ -936,13 +962,13 @@
       <div class="modal fixed-header" id="aboutModal">
         <div class="modal-header">
           <button class="back-button" id="closeAboutModal"></button>
-          <div class="modal-title">About Liberdus</div>
+          <div class="modal-title">About WIN</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
             <div class="about-content">
-              <img class="about-logo" src="./media/liberdus_logo_250.png" alt="Liberdus Logo" />
-              <p class="about-description">Liberdus is a decentralized messaging and wallet application.</p>
+              <img class="about-logo" src="./media/win-logo.svg" alt="WIN Proof of Skill emblem" />
+              <p class="about-description">WIN is a wallet and proof-of-skill network for public profiles, work contracts, and signed endorsements.</p>
 
               <div class="about-info-section">
                 <div class="about-info-item">Web Version: <span id="versionDisplayAbout"></span></div>
@@ -2664,7 +2690,7 @@
       <div class="modal fixed-header" id="receiveModal">
         <div class="modal-header">
           <button class="back-button" id="closeReceiveModal"></button>
-          <div class="modal-title">Receive LIB</div>
+          <div class="modal-title">Receive WIN</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -2701,7 +2727,7 @@
                   min="0"
                 />
                 <button id="toggleReceiveBalance" class="toggle-balance">
-                  <span id="receiveBalanceSymbol">LIB</span>
+                  <span id="receiveBalanceSymbol">WIN</span>
                 </button>
               </div>
             </div>
@@ -2794,7 +2820,7 @@
       <div class="modal fixed-header" id="sendAssetFormModal">
         <div class="modal-header">
           <button class="back-button" id="closeSendAssetFormModal"></button>
-          <div class="modal-title">Send LIB</div>
+          <div class="modal-title">Send WIN</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -2856,15 +2882,15 @@
                     class="form-control"
                     required
                   />
-                  <!-- add button to toggle between LIB and USD -->
+                  <!-- add button to toggle between WIN and USD -->
                   <button type="button" id="toggleBalance" class="toggle-balance">
-                    <span id="balanceSymbol">LIB</span>
+                    <span id="balanceSymbol">WIN</span>
                   </button>
                 </div>
                 <div id="availableBalance" class="available-balance">
                   <div class="balance-info">
-                    <span>Available: <span id="balanceAmount">0.00 LIB</span></span>
-                    <span class="fee-info">Fee: <span id="transactionFee">0.00 LIB</span></span>
+                    <span>Available: <span id="balanceAmount">0.00 WIN</span></span>
+                    <span class="fee-info">Fee: <span id="transactionFee">0.00 WIN</span></span>
                   </div>
                 </div>
               </div>
@@ -3440,7 +3466,7 @@
             <!-- No Validator Message - shown when no nominee exists -->
             <div id="validator-earn-message" style="display: none; margin-bottom: 20px;">
               <div class="action-item">
-                <p class="action-description" style="margin-bottom: 10px;">Now you can earn LIB for running a validator node.</p>
+                <p class="action-description" style="margin-bottom: 10px;">Now you can earn WIN for running a validator node.</p>
             <button id="validator-learn-more" class="btn btn--primary btn--pill btn--full">Learn More</button>
               </div>
             </div>
@@ -3453,7 +3479,7 @@
                 <span class="info-value code" id="validator-nominee"></span>
               </div>
               <div class="info-item" id="validator-user-stake-lib-item">
-                <span class="info-label">Staked Amount (LIB):</span>
+                <span class="info-label">Staked Amount (WIN):</span>
                 <span class="info-value" id="validator-user-stake-lib"></span>
               </div>
               <div class="info-item" id="validator-user-stake-usd-item">
@@ -3473,15 +3499,15 @@
                 <span class="info-value" id="validator-network-stake-usd"></span>
               </div>
               <div class="info-item">
-                <span class="info-label">Min Stake Required (LIB):</span>
+                <span class="info-label">Min Stake Required (WIN):</span>
                 <span class="info-value" id="validator-network-stake-lib"></span>
               </div>
               <div class="info-item">
-                <span class="info-label">Stability Factor (USD/LIB):</span>
+                <span class="info-label">Stability Factor (USD/WIN):</span>
                 <span class="info-value" id="validator-stability-factor"></span>
               </div>
               <div class="info-item" style="display: none">
-                <span class="info-label">Market Price (USD/LIB):</span>
+                <span class="info-label">Market Price (USD/WIN):</span>
                 <span class="info-value" id="validator-market-price"></span>
               </div>
               <div class="info-item" style="display: none">
@@ -3493,13 +3519,13 @@
 
           <div class="action-item">
             <button id="openStakeModal" class="btn btn--primary btn--pill btn--full">Stake</button>
-            <p class="action-description">Delegate LIB to a validator node to earn rewards.</p>
+            <p class="action-description">Delegate WIN to a validator node to earn rewards.</p>
           </div>
 
           <div class="action-item">
             <button id="submitUnstake" class="btn btn--danger btn--pill btn--full">Unstake</button>
             <div id="unstake-lock-info" class="unstake-lock-info" aria-live="polite"></div>
-            <p class="action-description">Withdraw your delegated LIB from a validator node.</p>
+            <p class="action-description">Withdraw your delegated WIN from a validator node.</p>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -3528,7 +3554,7 @@
               <div class="form-group">
                 <label for="newTollAmountInput">Set New Toll Amount</label>
                 <div class="form-text help-text">
-                  Enter the toll in USD. You will be paid in LIB at market rate equivalent to the USD amount you enter. Set to 0 for no toll, otherwise enter an amount at least the minimum toll shown below.
+                  Enter the toll in USD. You will be paid in WIN at market rate equivalent to the USD amount you enter. Set to 0 for no toll, otherwise enter an amount at least the minimum toll shown below.
                 </div>
                 <div class="amount-container">
                   <input
@@ -3619,8 +3645,8 @@
                 </label>
                 <div id="stakeAvailableBalanceDisplay" class="available-balance-display">
                   <div class="balance-info">
-                    <span>Available: <span id="stakeBalanceAmount">0.00 LIB</span></span>
-                    <span class="fee-info">Fee: <span id="stakeTransactionFee">0.00 LIB</span></span>
+                    <span>Available: <span id="stakeBalanceAmount">0.00 WIN</span></span>
+                    <span class="fee-info">Fee: <span id="stakeTransactionFee">0.00 WIN</span></span>
                   </div>
                 </div>
                 <input
@@ -3634,8 +3660,8 @@
               </div>
               <div class="form-actions">
                 <button type="submit" id="submitStake" class="btn btn--primary btn--pill btn--full">Submit Stake</button>
-                <button type="button" id="faucetButton" class="btn btn--secondary btn--pill btn--full" disabled>Claim LIB</button>
-                <p class="action-description">You can claim LIB tokens from the faucet to stake your node.</p>
+                <button type="button" id="faucetButton" class="btn btn--secondary btn--pill btn--full" disabled>Claim WIN</button>
+                <p class="action-description">You can claim WIN tokens from the faucet to stake your node.</p>
               </div>
             </form>
           </div>
@@ -3686,7 +3712,7 @@
         <div class="modal-content">
           <div class="form-container">
             <p class="modal-summary">
-              Invite your friends to join Liberdus. You may edit the message before sharing.
+              Invite your friends to join WIN. You may edit the message before sharing.
             </p>
             <form id="inviteForm" class="form--narrow">
               <div class="form-group">
@@ -3712,14 +3738,14 @@
         <div class="modal-content">
           <div class="form-container">
             <p class="bridge-explanation" style="margin-bottom: 1rem">
-              Bridge allows you to transfer LIB tokens between Liberdus and other networks.
+              Native WIN bridging is not operational yet. Use the BNB Chain funding panel in Wallet to receive real WIN tokens on BNB Chain.
             </p>
             <form id="bridgeForm" class="form--narrow">
               <div class="form-group">
                 <label for="bridgeDirection">Bridge Direction</label>
                 <select id="bridgeDirection" class="form-control">
-                  <option value="in">From External Network to Liberdus</option>
-                  <option value="out">From Liberdus to External Network</option>
+                  <option value="in">From External Network to WIN</option>
+                  <option value="out">From WIN to External Network</option>
                 </select>
               </div>
               <div class="form-group">

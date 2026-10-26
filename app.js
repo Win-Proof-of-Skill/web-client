@@ -1,6 +1,8 @@
+import { createWinWorkspace } from './win-workspace.mjs';
+import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'u'; // Also increment this when you increment version.html
+const version = 'w'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -49,6 +51,16 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'win-payments.js',
+      'win-theme.css',
+      'win-workspace.mjs',
+      'win-domain.mjs',
+      'win-bnb.mjs',
+      'win-pdf.mjs',
+      'external/pdf-lib.esm.min.mjs',
+      'external/fontkit.mjs',
+      'fonts/DejaVuSans.ttf',
+      'media/win-logo.svg',
       'evm-assets.js',
       'near-assets.js',
       'dao.js',
@@ -513,12 +525,12 @@ function newDataRecord(myAccount) {
       priceTimestamp: 0, // last time when prices were updated
       assets: [
         {
-          id: 'liberdus',
-          name: 'Liberdus',
-          symbol: 'LIB',
-          img: 'images/lib.png',
-          chainid: 2220,
-          contract: '041e48a5b11c29fdbd92498eb05573c52728398c',
+          id: 'win',
+          name: 'WIN',
+          symbol: 'WIN',
+          img: './media/win-logo.svg',
+          chainid: network.netid,
+          contract: null,
           price: null,
           balance: 0n,
           networth: 0.0,
@@ -1676,6 +1688,7 @@ class Footer {
     this.chatButton.addEventListener('click', () => this.switchView('chats'));
     this.contactsButton.addEventListener('click', () => this.switchView('contacts'));
     this.walletButton.addEventListener('click', () => this.switchView('wallet'));
+    document.querySelectorAll('[data-win-view]').forEach(button => button.addEventListener('click', () => this.switchView(button.dataset.winView)));
   }
 
   open() {
@@ -1700,7 +1713,9 @@ class Footer {
     const previousButton = document.querySelector('.nav-button.active');
   
     try {
-      // Hide all screens
+      // Hide all screens, including WIN directories.
+      document.querySelectorAll('.win-screen').forEach(screen => screen.classList.remove('active'));
+      document.querySelectorAll('.nav-button').forEach(button => button.classList.remove('active'));
       chatsScreen.close();
       contactsScreen.close();
       walletScreen.close();
@@ -1722,6 +1737,11 @@ class Footer {
         this.walletButton.classList.add('active');
       }
   
+      if (view === 'profiles' || view === 'contracts') {
+        document.querySelector(`[data-win-view="${view}"]`).classList.add('active');
+        document.getElementById(`${view}Screen`).classList.add('active');
+      }
+
       // Show header and footer
       header.open();
       footer.open();
@@ -1750,6 +1770,8 @@ class Footer {
         this.closeNewChatButton();
       }
   
+      if (['profiles', 'contracts', 'wallet'].includes(view)) await winWorkspace.open(view);
+
       // Update lists when switching views
       if (view === 'chats') {
         this.chatButton.classList.remove('has-notification');
@@ -1945,7 +1967,7 @@ class ChatsScreen {
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
         const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
-        const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
+        const amountDisplay = `${amountStr} ${latestActivity.symbol || 'WIN'}`;
         const directionText = latestActivity.my ? '-' : '+';
         // Create payment preview text
         previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
@@ -1977,7 +1999,7 @@ class ChatsScreen {
         const payment = latestActivity.payment;
         previewHTML = payment ? `<span class="payment-preview">${latestActivity.my ? '-' : '+'} ${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</span>` : '<span>Payment</span>';
       } else if (latestActivity.type === INTENTS_CHAT_MESSAGE_TYPE) {
-        // The same shape as a LIB payment's preview: signed amount, then note.
+        // The same shape as a WIN payment's preview: signed amount, then note.
         const payment = latestActivity.payment;
         if (payment) {
           const directionText = latestActivity.my ? '-' : '+';
@@ -2253,12 +2275,14 @@ class WalletScreen {
       this.openFaucetBridgeButton.classList.remove('bridge-mode');
     }
 
+    this.openBuyButton.hidden = !network.buyUrl;
+    this.openSellButton.hidden = !network.sellUrl;
+    this.openFaucetBridgeButton.hidden = !network.faucetUrl && !network.bridges?.length;
     this.openBuyButton.addEventListener('click', () => {
-      window.open('https://liberdus.com/buy', '_blank');
+      if (network.buyUrl?.startsWith('https://')) window.open(network.buyUrl, '_blank', 'noopener,noreferrer');
     });
-
     this.openSellButton.addEventListener('click', () => {
-      window.open('https://liberdus.com/sell', '_blank');
+      if (network.sellUrl?.startsWith('https://')) window.open(network.sellUrl, '_blank', 'noopener,noreferrer');
     });
 
     // Faucet/Bridge button handler
@@ -2304,8 +2328,8 @@ class WalletScreen {
     this.screen.classList.add('active');
     this.startBalanceUpdatedTimer();
     // Show testnet warning toast once per account (first-time tip).
-    if (!this.isMainnet() && !checkFirstTimeTip('testnetWarning')) {
-      showToast('The LIB in this Testnet is not of any value and will not be transferred to the Mainnet.', 0, 'info');
+    if (network.name === 'Testnet' && !checkFirstTimeTip('testnetWarning')) {
+      showToast('The WIN in this Testnet is not of any value and will not be transferred to the Mainnet.', 0, 'info');
       setFirstTimeTipShown('testnetWarning');
     }
   }
@@ -2422,7 +2446,7 @@ class WalletScreen {
           const assetQuantityText = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '');
           return `
                 <div class="asset-item">
-                    <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
+                    <img src="./media/win-logo.svg" class="asset-logo" alt="WIN">
                     <div class="asset-info">
                         <div class="asset-name">${escapeHtml(asset.name)}</div>
                         <div class="asset-symbol">1 ${escapeHtml(asset.symbol)} = ${assetPriceText}</div>
@@ -2528,13 +2552,18 @@ class WalletScreen {
       return;
     }
 
-    // Check LIB balance - faucet only works if balance is less than 100 LIB
-    const libAsset = myData.wallet.assets.find((asset) => asset.symbol === 'LIB');
+    if (!network.faucetUrl) {
+      showToast('No WIN faucet is configured. Receive funds from an existing wallet.', 5000, 'info');
+      return;
+    }
+
+    // Check WIN balance - faucet only works if balance is less than 100 WIN
+    const libAsset = myData.wallet.assets.find((asset) => asset.symbol === 'WIN');
     if (libAsset) {
       const balanceInWei = BigInt(libAsset.balance);
-      const minBalanceForFaucet = 100n * wei; // 100 LIB in wei
+      const minBalanceForFaucet = 100n * wei; // 100 WIN in wei
       if (balanceInWei >= minBalanceForFaucet) {
-        showToast('Balance exceeds 100 LIB, so you cannot claim more tokens from the faucet.', 0, 'warning');
+        showToast('Balance exceeds 100 WIN, so you cannot claim more tokens from the faucet.', 0, 'warning');
         return;
       }
     }
@@ -2563,7 +2592,7 @@ class WalletScreen {
       const result = await response.json();
       
       if (response.ok) {
-        showToast('Faucet request successful! The LIB will be sent to your wallet. Refresh your balance in 10 seconds.', 5000, 'success');
+        showToast('Faucet request successful! The WIN will be sent to your wallet. Refresh your balance in 10 seconds.', 5000, 'success');
       } else {
         const errorMessage = result.message || result.error || `HTTP ${response.status}: ${response.statusText}`;
         showToast(`Faucet error: ${errorMessage}`, 0, 'error');
@@ -2682,6 +2711,7 @@ class MenuModal {
     saveState();
 
     // clear storage
+    winWorkspace.reset();
     fullImageModal.close();
     clearMyData();
 
@@ -2710,7 +2740,7 @@ class MenuModal {
     footer.closeNewChatButton();
 
     // Reset header text
-    header.setText('Liberdus');
+    header.setText('WIN');
     // Clear avatar on sign out
     if (header.avatarContainer) {
       header.avatarContainer.innerHTML = '';
@@ -5172,7 +5202,7 @@ function renderDaoProjectProposalInfo(
       ['Maximum authorized', budget ? `${budget.maximumAuthorizedUsdStr} USD` : null],
       ...(showRuntimeStatus ? [
         ['Treasury balance', project.balanceWei === null ? null : formatDaoLibWei(project.balanceWei)],
-        ['Fixed USD/LIB rate', project.rateUsdStr === null ? null : `${project.rateUsdStr} USD/LIB`],
+        ['Fixed USD/WIN rate', project.rateUsdStr === null ? null : `${project.rateUsdStr} USD/WIN`],
         ['Started', project.startTime === null ? null : formatDaoDetailTimestamp(project.startTime)],
         ['Ended', project.endTime === null ? null : formatDaoDetailTimestamp(project.endTime)],
       ] : []),
@@ -5416,11 +5446,11 @@ const DAO_VOTE_WEIGHT_PRECISION = 1_000_000_000_000;
 const DAO_VOTE_WEIGHT_PRECISION_BIGINT = 1_000_000_000_000n;
 const DAO_CLAIM_REWARD_PRECISION = 10n ** 18n;
 const DAO_VOTE_HELP = {
-  timeFactor: 'Voting earlier gives more voting power. It does not change your LIB spend.',
-  votingPower: 'Voting power is the normalized weight from your LIB spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.',
+  timeFactor: 'Voting earlier gives more voting power. It does not change your WIN spend.',
+  votingPower: 'Voting power is the normalized weight from your WIN spend and timing. Final weight can shift slightly if the transaction lands later or network pricing changes before validation.',
   weight: 'Weight is a ratio. 1 / 1 splits evenly; 3 / 1 gives 75% / 25%.',
   voteThreshold: 'Minimum wallet balance required to vote on this proposal.',
-  minimumSpend: 'Base LIB spend for a valid vote. Choose a whole-number multiple of it when voting.',
+  minimumSpend: 'Base WIN spend for a valid vote. Choose a whole-number multiple of it when voting.',
 };
 
 function getDaoCurrentAccountAddress() {
@@ -5586,7 +5616,7 @@ function formatDaoPercent(value) {
 function formatDaoLibWei(value) {
   const weiValue = parseDaoUnsignedBigInt(value);
   if (weiValue === null) return 'Unavailable';
-  return `${formatDaoShortNumber(EthNum.toStr(weiValue))} LIB`;
+  return `${formatDaoShortNumber(EthNum.toStr(weiValue))} WIN`;
 }
 
 function formatDaoRewardAmount(value) {
@@ -6279,7 +6309,7 @@ function getDaoUsdAsLibWei(usdValue) {
   }
 }
 
-// Snapshotted proposal USD rule → LIB display. null means the requirement does not apply.
+// Snapshotted proposal USD rule → WIN display. null means the requirement does not apply.
 function formatDaoProposalVoteRequirementLib(usdValue) {
   if (!(Number(usdValue || 0) > 0)) return null;
   const weiAmount = getDaoUsdAsLibWei(usdValue);
@@ -7985,7 +8015,7 @@ class ProposalInfoModal {
     }
 
     const confirmedSpendWei = submission.spendWei;
-    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(confirmedSpendWei)} LIB?`)) return;
+    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(confirmedSpendWei)} WIN?`)) return;
 
     submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
@@ -8667,7 +8697,7 @@ const qrScanModal = new ScanQRModal();
  * @param {HTMLElement} balanceWarning - The element to display the balance warning
  * @returns {Promise<boolean>} - A promise that resolves to true if the balance is sufficient, false otherwise
  */
-async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
+async function validateBalance(amount, assetIndex = 0, balanceWarning = null, paymentFee = null) {
   if (balanceWarning) balanceWarning.style.display = 'none';
   // not checking for 0 since we allow 0 amount for messages when toll is not required
   if (amount < 0n) {
@@ -8689,7 +8719,7 @@ async function validateBalance(amount, assetIndex = 0, balanceWarning = null) {
     return false;
   }
   
-  const feeInWei = getTransactionFeeWei();
+  const feeInWei = paymentFee ?? getTransactionFeeWei();
   const totalRequired = amount + feeInWei;
   const hasInsufficientBalance = BigInt(asset.balance) < totalRequired;
 
@@ -8731,7 +8761,7 @@ async function getFeeBalanceStatus() {
   }
 
   const asset =
-    (myData?.wallet?.assets || []).find((walletAsset) => walletAsset?.symbol === 'LIB') ||
+    (myData?.wallet?.assets || []).find((walletAsset) => walletAsset?.symbol === 'WIN') ||
     myData?.wallet?.assets?.[0];
   if (!asset || asset.balance == null) {
     console.error('Wallet asset unavailable while checking fee balance');
@@ -8759,12 +8789,12 @@ function getFeeFailureToastConfig(reason, context = 'default') {
 
   if (reason === FEE_FAILURE_REASON_INSUFFICIENT_BALANCE) {
     if (isClaim) {
-      return { message: 'Cannot claim fee: insufficient LIB balance for network fee.', type: 'warning' };
+      return { message: 'Cannot claim fee: insufficient WIN balance for network fee.', type: 'warning' };
     }
     if (isSendRead) {
-      return { message: 'Cannot send read transaction: insufficient LIB balance for network fee.', type: 'warning' };
+      return { message: 'Cannot send read transaction: insufficient WIN balance for network fee.', type: 'warning' };
     }
-    return { message: 'Insufficient balance for fee. Go to the wallet to add more LIB.', type: 'error' };
+    return { message: 'Insufficient balance for fee. Go to the wallet to add more WIN.', type: 'error' };
   }
 
   if (reason === FEE_FAILURE_REASON_WALLET_UNAVAILABLE) {
@@ -9420,7 +9450,7 @@ class SignInModal {
       logsModal.log('⚠️ Could not retrieve storage information');
     }
     
-    await footer.switchView('chats'); // Default view
+    await footer.switchView('profiles'); // WIN directory is the default workspace
 
     // DAO reminders use only the metadata index and must not block sign-in.
     await refreshDaoNotificationSummary();
@@ -10847,23 +10877,24 @@ class HistoryModal {
         }
         
         // Render normal transaction
+        const paymentStatus = ['pending', 'confirmed', 'failed', 'unknown'].includes(tx.status) ? tx.status : '';
         const contactName = getContactDisplayName(contacts[tx.address]);
         
         return `
           <div class="transaction-item" data-address="${tx.address}" ${txidAttr} ${statusAttr}>
             <div class="transaction-info">
               <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
-                ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
+                ${tx.sign === -1 ? (paymentStatus === 'pending' || paymentStatus === 'unknown' ? '↑ Sending' : paymentStatus === 'failed' ? '↑ Failed' : '↑ Sent') : '↓ Received'}
               </div>
               <div class="transaction-amount">
-                ${tx.sign === -1 ? '-' : '+'} ${(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
+                ${tx.sign === -1 ? '-' : '+'} ${WinPayments.formatAtomic(BigInt(tx.amount))} ${asset.symbol}
               </div>
             </div>
             <div class="transaction-details">
               <div class="transaction-address">
                 ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contactName}
               </div>
-              <div class="transaction-time">${formatTime(tx.timestamp)}</div>
+              <div class="transaction-time">${formatTime(tx.timestamp)} ${paymentStatus ? ` · ${paymentStatus}` : ''}</div>
             </div>
             ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
           </div>
@@ -11406,7 +11437,7 @@ class GroupCallParticipantsModal {
 const groupCallParticipantsModal = new GroupCallParticipantsModal();
 
 function isLibAsset(asset) {
-  return asset?.id === 'liberdus' || asset?.symbol === 'LIB';
+  return asset?.id === 'win' || asset?.symbol === 'WIN';
 }
 
 function getLibUsdPriceFromParameters() {
@@ -11438,7 +11469,7 @@ async function getLibUsdPrice(options = {}) {
   syncLibUsdPriceToWalletAssets(price);
 
   if (price === null) {
-    console.warn('LIB/USD price unavailable: missing or invalid stability factor.');
+    console.warn('WIN/USD price unavailable: missing or invalid stability factor.');
   }
 
   return price;
@@ -13786,7 +13817,7 @@ async function processChats(chats, keys) {
             my: mine,
             message: payload.message, // Use the memo as the message content
             amount: parse(stringify(tx.amount)), // Ensure amount is stored as BigInt
-            symbol: 'LIB', // TODO: get the symbol from the asset
+            symbol: 'WIN', // TODO: get the symbol from the asset
             txid: txidHex,
           };
           // Insert the transfer message into the contact's message list, maintaining sort order
@@ -14073,37 +14104,78 @@ The main difference between a chat message and an asset transfer is
         * However, this does not gaurantee that the recipient has not already downloaded the message and may read it later
 `;
 
+let paymentSubmissionInFlight = false;
+function getPaymentFeeWei() {
+  return BigInt(network.payment.transferFee);
+}
+
 async function postAssetTransfer(to, amount, memo, keys, assetIndex) {
-  assert(Number.isInteger(assetIndex) && assetIndex >= 0, 'Transfer assetIndex must be a non-negative integer');
-
-  const toAddr = longAddress(to);
+  assert(Number.isInteger(assetIndex) && assetIndex >= 0, 'Invalid payment asset');
+  if (typeof amount !== 'bigint' || amount <= 0n) throw new Error('Payment amount must be positive atomic WIN.');
+  const account = myAccount;
+  const dataRecord = myData;
   const fromAddr = longAddress(keys.address);
-  await getNetworkParams();
-
-  const tx = {
-    type: 'transfer',
-    from: fromAddr,
-    to: toAddr,
-    amount: BigInt(amount),
-    chatId: hashBytes([fromAddr, toAddr].sort().join('')),
-    // TODO backend is not allowing memo > 140 characters; by pass using xmemo; we might have to check the total tx size instead
-    // memo: stringify(memo),
-    xmemo: memo,
-    timestamp: getTransactionTimestamp(),
-    fee: getTransactionFeeWei(),
-    networkId: network.netid,
-  };
-
-  const txid = await signObj(tx, keys);
-  const res = await injectTx(tx, txid);
-  if (res?.result?.success) {
-    const pendingTx = myData.pending.find((pendingTx) => pendingTx.txid === txid);
-    assert(pendingTx, 'Accepted transfer missing pending entry');
-    pendingTx.amount = tx.amount;
-    pendingTx.fee = tx.fee;
-    pendingTx.assetIndex = assetIndex;
+  const toAddr = longAddress(to);
+  if (WinPayments.isProtectedAddress(fromAddr) || WinPayments.isProtectedAddress(toAddr)) {
+    throw new Error('Payments cannot use protected registry addresses.');
   }
-  return res;
+  if (paymentSubmissionInFlight || (dataRecord.pending || []).some((tx) => tx.type === 'transfer')) {
+    throw new Error('Wait for the previous payment receipt before sending another payment.');
+  }
+  paymentSubmissionInFlight = true;
+  try {
+    if (!isOnline || !await getNetworkParams() || parameters.networkId !== network.netid) throw new Error('WIN network is unavailable.');
+    const [walletResult, protocolResult] = await Promise.all([
+      queryNetwork(`/account/${fromAddr}`), queryNetwork('/network/parameters'),
+    ]);
+    if (myAccount !== account || myData !== dataRecord) throw new Error('Account changed before payment submission.');
+    const protocol = protocolResult?.protocol;
+    if (protocol?.networkId !== network.netid || protocol?.currency !== 'WIN' || protocol?.transferNonceRequired !== true
+      || protocol.transferFee !== network.payment.transferFee) throw new Error('WIN payment protocol mismatch. Refresh the application.');
+    const wallet = walletResult?.account;
+    if (wallet?.id !== fromAddr || wallet?.type !== 'UserAccount') throw new Error('Sender wallet is unavailable.');
+    const lastNonce = wallet.data.transferNonce ?? 0;
+    if (!Number.isSafeInteger(lastNonce) || lastNonce < 0 || !Number.isSafeInteger(lastNonce + 1)) throw new Error('Invalid payment nonce.');
+    const tx = {
+      type: 'transfer', from: fromAddr, to: toAddr, amount,
+      nonce: lastNonce + 1,
+      chatId: hashBytes([fromAddr, toAddr].sort().join('')),
+      xmemo: memo, timestamp: getTransactionTimestamp(),
+      fee: getPaymentFeeWei(), networkId: network.netid,
+    };
+    const txid = await signObj(tx, keys);
+    if (myAccount !== account || myData !== dataRecord) throw new Error('Account changed before payment submission.');
+    const pending = {
+      txid, type: 'transfer', submittedts: getCorrectedTimestamp(), checkedts: 0,
+      to: normalizeAddress(toAddr), amount, fee: tx.fee, assetIndex,
+      networkId: network.netid, nonce: tx.nonce, status: 'pending', signedTx: tx,
+    };
+    dataRecord.pending ??= [];
+    dataRecord.pending.push(pending);
+    dataRecord.wallet.history ??= [];
+    insertSorted(dataRecord.wallet.history, {
+      txid, type: 'transfer', amount, sign: -1, timestamp: pending.submittedts,
+      address: pending.to, status: 'pending',
+    }, 'timestamp');
+    // Persist before the network request so a lost response or reload cannot lose the payment.
+    saveState();
+    const result = await injectTx(tx, txid, account);
+    if (myAccount !== account || myData !== dataRecord) return result;
+    if (result?.result?.success === false && !result.transportFailure) {
+      removePendingTransaction(txid);
+      updateTransactionStatus(txid, pending.to, 'failed', 'transfer');
+      saveState();
+      return { ...result, paymentStatus: 'failed' };
+    }
+    const status = result?.result?.success === true ? 'pending' : 'unknown';
+    const stored = dataRecord.pending.find((entry) => entry.txid === txid);
+    if (stored) stored.status = status;
+    updateTransactionStatus(txid, pending.to, status, 'transfer');
+    saveState();
+    return { ...(result || {}), txid, paymentStatus: status };
+  } finally {
+    paymentSubmissionInFlight = false;
+  }
 }
 
 // TODO - backend - when account is being registered, ensure that loserCase(alias)=alias and hash(alias)==aliasHash
@@ -14215,17 +14287,17 @@ function isTxFeeMismatchFailure(reason) {
 
 function getInsufficientFundsFailureMessage(reason) {
   if (typeof reason !== 'string') {
-    return 'Insufficient balance for fee. Go to the wallet to add more LIB.';
+    return 'Insufficient balance for fee. Go to the wallet to add more WIN.';
   }
 
   const tollMatch = reason.match(/toll\s*\(\s*([0-9]+)\s*\)/i);
   if (!tollMatch) {
-    return 'Insufficient balance for fee. Go to the wallet to add more LIB.';
+    return 'Insufficient balance for fee. Go to the wallet to add more WIN.';
   }
 
   return tollMatch[1] === '0'
-    ? 'Insufficient balance for fee. Go to the wallet to add more LIB.'
-    : 'Insufficient balance for fee and toll. Go to the wallet to add more LIB.';
+    ? 'Insufficient balance for fee. Go to the wallet to add more WIN.'
+    : 'Insufficient balance for fee and toll. Go to the wallet to add more WIN.';
 }
 
 function getUserFacingTxFailureReason(reason, feeMismatchStatus = null) {
@@ -14310,21 +14382,21 @@ async function injectTx(tx, txid, expectedAccount = null) {
       // Keep this simple: check locally cached wallet values only.
       const LOW_LIB_USD_THRESHOLD = 0.2;
       if (!myData?.wallet?.assets || !Array.isArray(myData.wallet.assets)) return;
-      const libAsset = myData.wallet.assets.find((asset) => asset?.symbol === 'LIB');
+      const libAsset = myData.wallet.assets.find((asset) => asset?.symbol === 'WIN');
       if (!libAsset) return;
 
       const usd = calculateAssetUsdValue(libAsset);
 
       if (Number.isFinite(usd) && usd < LOW_LIB_USD_THRESHOLD) {
         showToast(
-          'Add more LIB before you run out. On the Wallet page click the Faucet button.',
+          'Add native WIN before you run out. Open Wallet to copy your native receiving address.',
           0,
           'warning'
         );
       }
     } catch (e) {
       // Never block the transaction flow on toast logic.
-      console.warn('Low-LIB toast check failed:', e);
+      console.warn('Low-WIN toast check failed:', e);
     }
   }
 
@@ -14399,7 +14471,7 @@ async function injectTx(tx, txid, expectedAccount = null) {
       }
 
       if (tx.type !== 'register') {
-        // After submitting a transaction, warn if user is low on LIB.
+        // After submitting a transaction, warn if user is low on WIN.
         maybeShowLowLibToast();
       }
     } else {
@@ -14431,7 +14503,7 @@ async function injectTx(tx, txid, expectedAccount = null) {
     if (typeof error === 'string' && error.includes('timestamp out of range')) {
       showToast('Error injecting transaction (Please try again): ' + error, 0, 'error');
     } else {
-      showToast('Error injecting transaction: ' + error, 0, 'error');
+      showToast(tx.type === 'transfer' ? 'Payment delivery is uncertain. Waiting for its receipt.' : 'Error injecting transaction: ' + error, 0, tx.type === 'transfer' ? 'warning' : 'error');
     }
     console.error('Error injecting transaction:', error);
     const errorReason = typeof error === 'string' ? error : (error?.message || String(error) || 'inject_failed');
@@ -16465,7 +16537,7 @@ function initializeGatewayConfig() {
   if (network && network.gateways && network.gateways.length > 0){
     myData.network = parse(stringify(network))
   }
-  else if (myData.network.gateway.length <= 0){
+  else if (myData.network.gateways.length <= 0){
     showToast("No gateway server available; edit network.js file", 0, "error")
     return;
   }
@@ -18711,7 +18783,7 @@ const importModal = new RestoreAccountModal();
 
 class TollModal {
   constructor() {
-    this.currentCurrency = 'LIB'; // Initialize currency state
+    this.currentCurrency = 'WIN'; // Initialize currency state
     this.oldToll = null;
     this.minToll = null; // Will be set from network account
   }
@@ -18796,8 +18868,8 @@ class TollModal {
 
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
-      if (this.currentCurrency === 'LIB' && newToll < this.minToll) {
-        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`, 0, 'error');
+      if (this.currentCurrency === 'WIN' && newToll < this.minToll) {
+        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} WIN or 0 WIN`, 0, 'error');
         return;
       }
       if (this.currentCurrency === 'USD') {
@@ -18812,9 +18884,9 @@ class TollModal {
     }
 
     // Add maximum toll validation
-    if (this.currentCurrency === 'LIB') {
+    if (this.currentCurrency === 'WIN') {
       if (newTollValue > MAX_TOLL) {
-        showToast(`Toll cannot exceed ${MAX_TOLL} LIB`, 0, 'error');
+        showToast(`Toll cannot exceed ${MAX_TOLL} WIN`, 0, 'error');
         return;
       }
     } else {
@@ -18854,7 +18926,7 @@ class TollModal {
     let tollValueUSD = '';
     let tollValueLIB = '';
 
-    if (tollUnit == 'LIB') {
+    if (tollUnit == 'WIN') {
       const libFloat = parseFloat(big2str(toll, 18));
       tollValueUSD = (libFloat * stabilityFactor).toString();
       tollValueLIB = libFloat.toString();
@@ -18868,11 +18940,11 @@ class TollModal {
     const libDisplay = stabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
 
     // USD-only UI
-    document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)`;
+    document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} WIN)`;
   }
 
   /**
-   * Updates the equivalent LIB display beneath the USD input
+   * Updates the equivalent WIN display beneath the USD input
    * @returns {void}
    */
   updateEquivalentLibDisplay() {
@@ -18894,7 +18966,7 @@ class TollModal {
     }
     const lib = usd / factor;
     this.equivalentLibDisplay.style.display = 'block';
-    this.equivalentLibDisplay.textContent = `≈ ${lib.toFixed(6)} LIB`;
+    this.equivalentLibDisplay.textContent = `≈ ${lib.toFixed(6)} WIN`;
   }
 
   /**
@@ -18968,9 +19040,9 @@ class TollModal {
     const newToll = bigxnum2big(wei, value);
 
     // Check minimum toll requirements
-    if (this.currentCurrency === 'LIB') {
+    if (this.currentCurrency === 'WIN') {
       if (newToll < this.minToll) {
-        return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`;
+        return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} WIN or 0 WIN`;
       }
     } else {
       const stabilityFactor = getStabilityFactor();
@@ -20148,14 +20220,14 @@ class ValidatorStakingModal {
     // Get already accumulated rewards from node account - for both active and inactive validators
     const accumulatedRewardLib = validatorData.account.reward;
     let accumulatedRewardUsd = BigInt(0);
-    // Convert accumulatedRewardLib from LIB to USD using stability factor
+    // Convert accumulatedRewardLib from WIN to USD using stability factor
     try {
       const stabilityFactor = getStabilityFactor();
       if (stabilityFactor > 0) {
         accumulatedRewardUsd = bigxnum2big(accumulatedRewardLib, stabilityFactor.toString());
       }
     } catch (e) {
-      console.warn('Failed to convert reward from LIB to USD:', e);
+      console.warn('Failed to convert reward from WIN to USD:', e);
     }
 
     const rewardStartTime = validatorData?.account?.rewardStartTime || 0; // in seconds
@@ -20397,11 +20469,11 @@ class StakeValidatorModal {
   }
 
   async updateStakeBalanceDisplay() {
-    const libAsset = myData.wallet.assets.find((asset) => asset.symbol === 'LIB');
+    const libAsset = myData.wallet.assets.find((asset) => asset.symbol === 'WIN');
     
     if (!libAsset) {
-      this.balanceAmount.textContent = '0.000000 LIB';
-      this.transactionFee.textContent = '0.00 LIB';
+      this.balanceAmount.textContent = '0.000000 WIN';
+      this.transactionFee.textContent = '0.00 WIN';
       return;
     }
 
@@ -20411,8 +20483,8 @@ class StakeValidatorModal {
     const balanceInLIB = big2str(BigInt(libAsset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
 
-    this.balanceAmount.textContent = balanceInLIB + ' LIB';
-    this.transactionFee.textContent = feeInLIB + ' LIB';
+    this.balanceAmount.textContent = balanceInLIB + ' WIN';
+    this.transactionFee.textContent = feeInLIB + ' WIN';
   }
 
   async validateStakeInputs() {
@@ -20500,7 +20572,7 @@ class StakeValidatorModal {
     // Check 2: Minimum Stake Amount
     if (amountWei < minStakeWei) {
       const minStakeFormatted = big2str(minStakeWei, 18).slice(0, -16);
-      this.amountWarning.textContent = `must be at least ${minStakeFormatted} LIB`;
+      this.amountWarning.textContent = `must be at least ${minStakeFormatted} WIN`;
       this.amountWarning.style.display = 'inline';
       return;
     }
@@ -20576,7 +20648,7 @@ class StakeValidatorModal {
       const result = await response.json();
       
       if (response.ok) {
-        showToast('Faucet request successful! The LIB will be sent to your wallet.', 5000, 'success');
+        showToast('Faucet request successful! The WIN will be sent to your wallet.', 5000, 'success');
         this.close();
       } else {
         const errorMessage = result.message || result.error || 'Unknown error';
@@ -20744,7 +20816,7 @@ class ChatModal {
       return this.tollTemplate.innerHTML;
     }
     // Fallback message if template not found
-    return '<strong>What is a Toll?</strong><br><br>A toll is a payment in LIB that recipients can require with messages to prevent spam.';
+    return '<strong>What is a Toll?</strong><br><br>A toll is a payment in WIN that recipients can require with messages to prevent spam.';
   }
 
   /**
@@ -21511,7 +21583,7 @@ class ChatModal {
         const tollInLib = myData.contacts[this.address].tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
         const sufficientBalance = await validateBalance(tollInLib);
         if (!sufficientBalance) {
-          const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
+          const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more WIN.`;
           showToast(msg, 0, 'error');
           return;
         }
@@ -22400,7 +22472,7 @@ class ChatModal {
       const amount = myData.contacts[this.address].tollRequiredToSend == 1 ? getEffectiveTollLibWei(this.toll) : 0n;
       const sufficientBalance = await validateBalance(amount);
       if (!sufficientBalance) {
-        const msg = `Insufficient balance for fee${amount > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
+        const msg = `Insufficient balance for fee${amount > 0n ? ' and toll' : ''}. Go to the wallet to add more WIN.`;
         showToast(msg, 0, 'error');
         return;
       }
@@ -23005,7 +23077,7 @@ class ChatModal {
           : getEffectiveTollLibWei(this.toll);
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
-        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
+        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more WIN.`;
         showToast(msg, 0, 'error');
         return;
       }
@@ -23107,7 +23179,7 @@ class ChatModal {
   }
 
   /**
-   * The LIB a chat receipt to this contact costs in toll, before the fee.
+   * The WIN a chat receipt to this contact costs in toll, before the fee.
    *
    * The recipient's own toll, from their contact record -- not this.toll,
    * which belongs to whichever conversation is open. A payment sent from the
@@ -23127,7 +23199,7 @@ class ChatModal {
    * Asked before any money moves. The transfer settles on NEAR and the
    * receipt on Liberdus, so anything that would stop the receipt -- the
    * other kind of account (public and private accounts cannot message each
-   * other), a block, missing keys, or too little LIB for the toll and fee --
+   * other), a block, missing keys, or too little WIN for the toll and fee --
    * has to be found here, not after the money has gone. Throws when it
    * cannot be checked; the caller refuses then too.
    */
@@ -23153,19 +23225,19 @@ class ChatModal {
     }
 
     // Fresh where it can be; the saved balance otherwise, as any send uses.
-    await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
+    await walletScreen.updateWalletBalances().catch((error) => console.warn('WIN balance refresh failed:', error));
     const toll = this.paymentMessageToll(address);
     if (!(await validateBalance(toll))) {
       // validateBalance also refuses when it cannot learn the fee.
       const fee = getTransactionFeeWei({ allowNull: true });
       if (fee === null) throw new Error('Message fee unavailable');
       const needed = formatDisplayAmount(big2str(toll + fee, 18), 6);
-      return `The chat message to ${name} costs ${needed} LIB with its fee, and you do not have enough LIB. Add LIB first.`;
+      return `The chat message to ${name} costs ${needed} WIN with its fee, and you do not have enough WIN. Add WIN first.`;
     }
     return null;
   }
 
-  /** Check the actual recipient and live LIB funds before an external payment. */
+  /** Check the actual recipient and live WIN funds before an external payment. */
   async prepareEvmPaymentRecipient(resolution, account) {
     const address = normalizeAddress(resolution.address);
     if (!myData.contacts[address]) {
@@ -23182,7 +23254,7 @@ class ChatModal {
     const recipient = recipientInfo?.account;
     const fee = paramsOk ? getTransactionFeeWei({ allowNull: true }) : null;
     if (!recipient?.data || balanceInfo?.balance == null || fee === null) {
-      throw new Error('Cannot check LIB balance, message fee, or recipient toll. Try again.');
+      throw new Error('Cannot check WIN balance, message fee, or recipient toll. Try again.');
     }
     const senderIsPrivate = account.private === true;
     if ((recipient.private === true) !== senderIsPrivate) {
@@ -23192,14 +23264,14 @@ class ChatModal {
       ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
     if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
     if (required === 2) throw new Error('This recipient has blocked messages.');
-    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(recipient.data.tollUnit || 'LIB')) {
+    if (typeof recipient.data.toll !== 'bigint' || !['WIN', 'USD'].includes(recipient.data.tollUnit || 'WIN')) {
       throw new Error('Cannot determine recipient toll.');
     }
     const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
     const totalRequired = fee + toll;
     const available = BigInt(balanceInfo.balance);
     if (available < totalRequired) {
-      throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
+      throw new Error(`Not enough WIN for the chat message. Required: ${big2str(totalRequired, 18)} WIN; available: ${big2str(available, 18)} WIN; add ${big2str(totalRequired - available, 18)} WIN.`);
     }
     // Validate current encryption keys without mutating the saved contact.
     const publicKey = recipient.publicKey;
@@ -23212,7 +23284,7 @@ class ChatModal {
       address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString(),
       contactUpdates: {
         public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
-        tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
+        tollUnit: recipient.data.tollUnit || 'WIN', tollRequiredToSend: required,
       },
     };
   }
@@ -23235,7 +23307,7 @@ class ChatModal {
       if (record.assetState !== 'confirmed') {
         throw new Error('Chat message cost exceeds the approved amount. Review the message cost before sending.');
       }
-      const approved = window.confirm(`The chat message fee and toll increased from ${big2str(BigInt(record.messageCostLimit), 18)} LIB to ${big2str(messageCost, 18)} LIB. Send the message at this cost? The EVM asset will not be sent again.`);
+      const approved = window.confirm(`The chat message fee and toll increased from ${big2str(BigInt(record.messageCostLimit), 18)} WIN to ${big2str(messageCost, 18)} WIN. Send the message at this cost? The EVM asset will not be sent again.`);
       if (!approved) return false;
       record.messageCostLimit = messageCost.toString();
     }
@@ -23256,7 +23328,7 @@ class ChatModal {
     }
     const previousTxid = record.attempt.txid;
     // Never replay a saved, possibly expired signature. A retry gets a new txid.
-    // Keep the old card available if refreshing keys, LIB balance or cost fails.
+    // Keep the old card available if refreshing keys, WIN balance or cost fails.
     try {
       if (!await this.prepareEvmPaymentMessage(record, account)) return false;
     } catch (error) {
@@ -23382,7 +23454,7 @@ class ChatModal {
       const tollInLib = this.paymentMessageToll(currentAddress);
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
-        throw new Error('Not enough LIB for the message fee.');
+        throw new Error('Not enough WIN for the message fee.');
       }
       const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
       built = await this.buildEncryptedStructuredChatTx(
@@ -23715,11 +23787,11 @@ class ChatModal {
 
     // Check if it's a payment based on the presence of the amount property (BigInt)
     if (typeof item.amount === 'bigint') {
-      // Assuming LIB (18 decimals) for now. TODO: Handle different asset decimals if needed.
+      // Assuming WIN (18 decimals) for now. TODO: Handle different asset decimals if needed.
       // Format amount correctly using big2str
       const amountStr = big2str(item.amount, 18);
       const amountNum = parseFloat(amountStr);
-      const amountDisplay = `${amountNum.toFixed(6)} ${escapeHtml(item.symbol || 'LIB')}`;
+      const amountDisplay = `${amountNum.toFixed(6)} ${escapeHtml(item.symbol || 'WIN')}`;
       const directionText = item.my ? '-' : '+';
       const messageClass = item.my ? 'sent' : 'received';
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
@@ -23897,7 +23969,7 @@ class ChatModal {
           // checked, so the bubble says what was claimed and carries its
           // verification state rather than asserting money arrived.
           const verified = item.paymentVerified || 'unchecked';
-          // Signed like a LIB payment, so a run of payments reads as money in
+          // Signed like a WIN payment, so a run of payments reads as money in
           // and money out without checking which side each bubble sits on.
           const direction = item.my ? '−' : '+';
           messageTextHTML = `
@@ -27021,7 +27093,7 @@ class ChatModal {
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
       const feeInLIB = big2str(getTransactionFeeWei(), 18).slice(0, -16);
-      showToast(`Insufficient balance for fee of ${feeInLIB} LIB. Go to the wallet to add more LIB.`, 0, 'error');
+      showToast(`Insufficient balance for fee of ${feeInLIB} WIN. Go to the wallet to add more WIN.`, 0, 'error');
       console.warn('Reaction send skipped due to insufficient balance', reaction);
       return false;
     }
@@ -27665,7 +27737,7 @@ class ChatModal {
       const sufficientBalance = await validateBalance(tollInLib);
       if (!sufficientBalance) {
         this.clearRecentDeleteForAllGuard(deleteForAllGuard);
-        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
+        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more WIN.`;
         showToast(msg, 0, 'error');
         return;
       }
@@ -27737,7 +27809,7 @@ class ChatModal {
   }
 
   /**
-   * Formats toll amounts to display text and returns LIB wei and unit for internal use
+   * Formats toll amounts to display text and returns WIN wei and unit for internal use
    * @param {bigint} tollBigInt
    * @param {string} tollUnit
    * @returns {{ text: string, libWei: bigint, unit: string }}
@@ -27755,20 +27827,20 @@ class ChatModal {
     if (isNaN(usdValue) || isNaN(libValue)) {
       text = `${tollFloat.toFixed(6)} USD`;
     } else {
-      // text = `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
-      // Only show USD in display; LIB calculations kept for potential future use
+      // text = `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} WIN)`;
+      // Only show USD in display; WIN calculations kept for potential future use
       text = `${usdValue.toFixed(6)} USD`;
     }
 
     // Calculate libWei using BigInt arithmetic to preserve precision
     let libWei;
     if (tollUnit === 'USD' && factorValid) {
-      // Convert USD wei to LIB wei by dividing by factor using scaled BigInt math
+      // Convert USD wei to WIN wei by dividing by factor using scaled BigInt math
       // libWei = safeToll / factor, but we use: libWei = (safeToll * PRECISION) / scaledFactor
       const PRECISION = 10n ** 18n;
       const scaledFactor = BigInt(Math.round(factor * 1e18));
       libWei = (safeToll * PRECISION) / scaledFactor;
-    } else if (tollUnit === 'LIB') {
+    } else if (tollUnit === 'WIN') {
       libWei = safeToll;
     } else {
       libWei = 0n;
@@ -27805,7 +27877,7 @@ class ChatModal {
       contact.tollUnit
     );
     const effectiveTollLibWei = getEffectiveTollLibWei(libWei);
-    const { text: effectiveUsdString } = this.formatTollDisplay(effectiveTollLibWei, 'LIB');
+    const { text: effectiveUsdString } = this.formatTollDisplay(effectiveTollLibWei, 'WIN');
 
     let display;
     if (contact.tollRequiredToSend == 1) {
@@ -27831,7 +27903,7 @@ class ChatModal {
     }
     tollValue.textContent = display;
 
-    // Store the toll in LIB for message creation (chat messages expect LIB wei)
+    // Store the toll in WIN for message creation (chat messages expect WIN wei)
     this.toll = typeof libWei === 'bigint' ? libWei : 0n;
   }
 
@@ -28219,7 +28291,7 @@ class ChatModal {
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
       throw new Error(
-        `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`
+        `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more WIN.`
       );
     }
 
@@ -29410,7 +29482,7 @@ class CallInviteModal {
               break;
             case 'insufficientBalance':
               failureItems.push({
-                text: 'Insufficient LIB balance to invite:',
+                text: 'Insufficient WIN balance to invite:',
                 sublist: nameList
               });
               break;
@@ -29733,7 +29805,7 @@ class ShareAttachmentModal {
         }
         
         // Calculate toll amount: 0 for connections, recipient's required toll for others
-        let tollInLib = tollRequiredToSend === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(contact.toll || 0n, contact.tollUnit || 'LIB'));
+        let tollInLib = tollRequiredToSend === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(contact.toll || 0n, contact.tollUnit || 'WIN'));
 
         const totalRequired = tollInLib + feeInWei;
         if (availableBalanceWei < totalRequired) {
@@ -29842,7 +29914,7 @@ class ShareAttachmentModal {
               break;
             case 'insufficientBalance':
               failureItems.push({
-                text: 'Insufficient LIB balance to share with:',
+                text: 'Insufficient WIN balance to share with:',
                 sublist: nameList
               });
               break;
@@ -33343,13 +33415,13 @@ class SendAssetFormModal {
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
     // amount input listener for normalizing
-    this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
+    // Preserve the entered decimal text; validation rejects invalid or over-precise amounts.
     // amount input listener for real-time balance validation
     this.amountInput.addEventListener('input', this.updateAvailableBalance.bind(this));
     // Add custom validation message for minimum amount
     this.amountInput.addEventListener('invalid', (event) => {
       if (event.target.validity.rangeUnderflow) {
-        event.target.setCustomValidity('Value must be at least 1 wei (1×10⁻¹⁸ LIB).');
+        event.target.setCustomValidity('Value must be at least 1 wei (1×10⁻¹⁸ WIN).');
       }
     });
     this.amountInput.addEventListener('input', (event) => {
@@ -33358,7 +33430,7 @@ class SendAssetFormModal {
     });
     // Clear amount field on focus if it contains only "0"
     this.amountInput.addEventListener('focus', this.handleAmountFocus.bind(this));
-    // event listener for toggle LIB/USD button
+    // event listener for toggle WIN/USD button
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
     this.memoInput.addEventListener('input', this.handleMemoInputChange.bind(this));
 
@@ -33386,7 +33458,7 @@ class SendAssetFormModal {
     this.balanceWarning.textContent = '';
     this.balanceWarning.style.display = 'none';
     this.submitButton.disabled = true;
-    this.balanceSymbol.textContent = 'LIB';
+    this.balanceSymbol.textContent = 'WIN';
     this.balanceAmount.textContent = 'Loading…';
     this.transactionFee.textContent = 'Loading…';
 
@@ -33406,7 +33478,7 @@ class SendAssetFormModal {
       this.balanceAmount.textContent = 'Unavailable';
       this.transactionFee.textContent = 'Unavailable';
       this.submitButton.disabled = true;
-      showToast('Unable to refresh LIB balance', 3000, 'warning');
+      showToast('Unable to refresh WIN balance', 3000, 'warning');
     }
     return this.isCurrentSession(session);
   }
@@ -33423,11 +33495,11 @@ class SendAssetFormModal {
   static toLibWei(amount, unit) {
     try {
       if (unit === 'USD') {
-        return EthNum.usdToWei(amount, parameters?.current?.stabilityFactorStr);
+        return WinPayments.parseAtomic(WinPayments.convertAmount(amount, parameters?.current?.stabilityFactorStr, false));
       }
       const decimal = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
-      if (unit !== 'LIB' || !decimal.test(amount)) return null;
-      return EthNum.toWei(amount);
+      if (unit !== 'WIN' || !decimal.test(amount)) return null;
+      return WinPayments.parseAtomic(amount);
     } catch {
       return null;
     }
@@ -33618,7 +33690,7 @@ class SendAssetFormModal {
     const tollInLibWei = normalizeTollToLibWei(toll, this.tollInfo.tollUnit);
     const effectiveTollLibWei = getEffectiveTollLibWei(tollInLibWei);
     const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
-    const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} LIB)`;
+    const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} WIN)`;
     let display;
     if (this.tollInfo.required == 1) {
       display = `${usdString}`;
@@ -33707,7 +33779,7 @@ class SendAssetFormModal {
 
     const asset = walletScreen.getLibAsset();
     if (!asset) {
-      showToast('Liberdus asset is unavailable.', 3000, 'warning');
+      showToast('WIN asset is unavailable.', 3000, 'warning');
       return;
     }
     const amountText = this.amountInput.value.trim();
@@ -33716,13 +33788,13 @@ class SendAssetFormModal {
     const memo = this.memoInput.value.trim();
     const amountWei = this.getAmountWei();
     if (amountWei === null) {
-      showToast('Unable to calculate the LIB amount. Check the amount and LIB/USD price.', 3000, 'warning');
+      showToast('Unable to calculate the WIN amount. Check the amount and WIN/USD price.', 3000, 'warning');
       return;
     }
 
     const warning = document.createElement('span');
     const assetIndex = myData.wallet.assets.indexOf(asset);
-    const hasBalance = await validateBalance(amountWei, assetIndex, warning);
+    const hasBalance = await validateBalance(amountWei, assetIndex, warning, getPaymentFeeWei());
     if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
       || this.amountInput.value.trim() !== amountText || this.balanceSymbol.textContent !== amountUnit
       || this.usernameInput.value.trim() !== username || this.memoInput.value.trim() !== memo) return;
@@ -33741,7 +33813,7 @@ class SendAssetFormModal {
       : '';
     sendAssetConfirmModal.confirmAmountUSD.textContent = usdText ? `≈ ${usdText} USD` : '';
     sendAssetConfirmModal.confirmRecipient.textContent = username;
-    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} LIB`;
+    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} WIN`;
     sendAssetConfirmModal.confirmAsset.textContent = asset.name === asset.symbol
       ? asset.symbol : `${asset.name} (${asset.symbol})`;
 
@@ -33769,9 +33841,9 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     if (!this.isCurrentSession(session)) return;
-    const feeInWei = getTransactionFeeWei();
+    const feeInWei = getPaymentFeeWei();
     const maxAmount = BigInt(asset.balance) - feeInWei;
-    const maxAmountStr = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
+    const maxAmountStr = WinPayments.formatAtomic(maxAmount > 0n ? maxAmount : 0n);
 
     // Check if we're in USD mode
     const isUSD = this.balanceSymbol.textContent === 'USD';
@@ -33779,9 +33851,9 @@ class SendAssetFormModal {
     if (isUSD) {
       // Convert to USD before displaying
       const stabilityFactor = getStabilityFactor();
-      this.amountInput.value = (parseFloat(maxAmountStr) * stabilityFactor).toString();
+      this.amountInput.value = WinPayments.convertAmount(maxAmountStr, parameters.current.stabilityFactorStr, true);
     } else {
-      // Display in LIB
+      // Display in WIN
       this.amountInput.value = maxAmountStr;
     }
     this.amountInput.dispatchEvent(new Event('input'));
@@ -33818,10 +33890,10 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     if (!this.isCurrentSession(session)) return;
-    const txFeeInLIB = getTransactionFeeWei();
+    const txFeeInLIB = getPaymentFeeWei();
     const stabilityFactor = getStabilityFactor();
 
-    // Preserve the current toggle state (LIB/USD) instead of overwriting it
+    // Preserve the current toggle state (WIN/USD) instead of overwriting it
     const currentSymbol = this.balanceSymbol.textContent;
     const isCurrentlyUSD = currentSymbol === 'USD';
 
@@ -33868,6 +33940,13 @@ class SendAssetFormModal {
     const isAddressConsideredValid =
       this.usernameAvailable.style.display === 'inline' && this.usernameAvailable.textContent === 'found';
 
+    if (this.foundAddressObject?.address && WinPayments.isProtectedAddress(longAddress(this.foundAddressObject.address))) {
+      this.balanceWarning.textContent = 'Protected registry addresses cannot receive payments.';
+      this.balanceWarning.style.display = 'inline';
+      this.submitButton.disabled = true;
+      return;
+    }
+
     const amount = this.amountInput.value.trim();
     const unit = this.balanceSymbol.textContent;
 
@@ -33893,7 +33972,7 @@ class SendAssetFormModal {
 
     const amountBigInt = this.getAmountWei();
     if (amountBigInt === null) {
-      this.balanceWarning.textContent = 'Unable to calculate the LIB amount.';
+      this.balanceWarning.textContent = 'Unable to calculate the WIN amount.';
       this.balanceWarning.style.display = 'inline';
       this.submitButton.disabled = true;
       return;
@@ -33902,7 +33981,7 @@ class SendAssetFormModal {
     // returns false if the amount/balance is invalid.
     // Validate into a detached element so an old request cannot change a newer form.
     const warning = document.createElement('span');
-    const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, warning);
+    const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, warning, getPaymentFeeWei());
     if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
       || this.amountInput.value.trim() !== amount || this.balanceSymbol.textContent !== unit) return;
     this.balanceWarning.textContent = warning.textContent;
@@ -33928,7 +34007,7 @@ class SendAssetFormModal {
       if (this.memoInput.value.trim() != '') {
         const toll = typeof this.tollInfo.toll === 'bigint' ? this.tollInfo.toll : 0n;
         if (toll === 0n) return true;
-        const tollWei = SendAssetFormModal.toLibWei(EthNum.toStr(toll), this.tollInfo.tollUnit || 'LIB');
+        const tollWei = SendAssetFormModal.toLibWei(EthNum.toStr(toll), this.tollInfo.tollUnit || 'WIN');
         if (tollWei === null) {
           this.balanceWarning.textContent = 'Unable to calculate the memo toll.';
           this.balanceWarning.style.display = 'inline';
@@ -33949,8 +34028,8 @@ class SendAssetFormModal {
   }
 
   /**
-   * This function is called when the user clicks the toggle LIB/USD button.
-   * Updates the balance symbol and the send amount to the equivalent value in USD/LIB
+   * This function is called when the user clicks the toggle WIN/USD button.
+   * Updates the balance symbol and the send amount to the equivalent value in USD/WIN
    * @param {Event} e - The event object
    * @returns {void}
    */
@@ -33959,28 +34038,28 @@ class SendAssetFormModal {
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
-    this.balanceSymbol.textContent = this.balanceSymbol.textContent === 'LIB' ? 'USD' : 'LIB';
+    this.balanceSymbol.textContent = this.balanceSymbol.textContent === 'WIN' ? 'USD' : 'WIN';
 
-    // check the context value of the button to determine if it's LIB or USD
-    const isLib = this.balanceSymbol.textContent === 'LIB';
+    // check the context value of the button to determine if it's WIN or USD
+    const isLib = this.balanceSymbol.textContent === 'WIN';
 
-    // get the scalability factor for LIB/USD conversion
+    // get the scalability factor for WIN/USD conversion
     await getNetworkParams();
     if (!this.isCurrentSession(session)) return;
     const stabilityFactor = getStabilityFactor();
 
-    // Get the raw values in LIB format
+    // Get the raw values in WIN format
     const asset = walletScreen.getLibAsset();
     if (!asset) return;
-    const txFeeInWei = getTransactionFeeWei();
+    const txFeeInWei = getPaymentFeeWei();
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
 
     // if isLib is false, convert the sendAmount to USD
     if (!isLib) {
-      this.amountInput.value = this.amountInput.value * stabilityFactor;
+      this.amountInput.value = this.amountInput.value ? WinPayments.convertAmount(this.amountInput.value, parameters.current.stabilityFactorStr, true) : '';
     } else {
-      this.amountInput.value = this.amountInput.value / stabilityFactor;
+      this.amountInput.value = this.amountInput.value ? WinPayments.convertAmount(this.amountInput.value, parameters.current.stabilityFactorStr, false) : '';
     }
 
     this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, !isLib, stabilityFactor);
@@ -34005,18 +34084,18 @@ class SendAssetFormModal {
 
   /**
    * Updates the display of balance and fee amounts with appropriate formatting
-   * @param {string} balanceInLIB - The balance amount in LIB
-   * @param {string} feeInLIB - The fee amount in LIB
+   * @param {string} balanceInLIB - The balance amount in WIN
+   * @param {string} feeInLIB - The fee amount in WIN
    * @param {boolean} isUSD - Whether to display in USD format
-   * @param {number} stabilityFactor - The factor to convert between LIB and USD
+   * @param {number} stabilityFactor - The factor to convert between WIN and USD
    */
   updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, stabilityFactor) {
     if (isUSD) {
       this.balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * stabilityFactor).toPrecision(6);
       this.transactionFee.textContent = '$' + (parseFloat(feeInLIB) * stabilityFactor).toPrecision(2);
     } else {
-      this.balanceAmount.textContent = balanceInLIB + ' LIB';
-      this.transactionFee.textContent = feeInLIB + ' LIB';
+      this.balanceAmount.textContent = balanceInLIB + ' WIN';
+      this.transactionFee.textContent = feeInLIB + ' WIN';
     }
   }
 
@@ -34110,6 +34189,9 @@ class SendAssetFormModal {
       const base64Data = data.substring('liberdus://'.length);
       const jsonData = bin2utf8(base642bin(base64Data));
       const paymentData = JSON.parse(jsonData);
+      if (paymentData.networkId && paymentData.networkId !== network.netid) {
+        throw new Error('Payment QR code belongs to another network');
+      }
 
       if (paymentData.u) {
         this.usernameInput.value = paymentData.u;
@@ -34117,11 +34199,11 @@ class SendAssetFormModal {
       if (paymentData.d) {
         try {
           const symbol = String(paymentData.d).toUpperCase();
-          const current = String(this.balanceSymbol.textContent || 'LIB').toUpperCase();
+          const current = String(this.balanceSymbol.textContent || 'WIN').toUpperCase();
           if (symbol === 'USD' && current !== 'USD') {
             // call the existing toggle handler to reuse conversion logic
             await this.handleToggleBalance();
-          } else if (symbol === 'LIB' && current !== 'LIB') {
+          } else if (symbol === 'WIN' && current !== 'WIN') {
             await this.handleToggleBalance();
           }
         } catch (err) {
@@ -34211,7 +34293,7 @@ class SendAssetConfirmModal {
     }
     const selectedAsset = walletScreen.getLibAsset();
     if (!selectedAsset) {
-      showToast('Liberdus asset is unavailable.', 3000, 'warning');
+      showToast('WIN asset is unavailable.', 3000, 'warning');
       this.close();
       return;
     }
@@ -34231,7 +34313,7 @@ class SendAssetConfirmModal {
     const wallet = myData.wallet;
     const assetIndex = wallet.assets.indexOf(selectedAsset);
     if (assetIndex < 0) {
-      showToast('Liberdus asset is unavailable.', 0, 'error');
+      showToast('WIN asset is unavailable.', 0, 'error');
       return;
     }
     const amount = payment.amountWei;
@@ -34240,17 +34322,17 @@ class SendAssetConfirmModal {
     let toAddress;
 
     // Validate amount including transaction fee
-    const hasBalance = await validateBalance(amount, assetIndex);
+    const hasBalance = await validateBalance(amount, assetIndex, null, getPaymentFeeWei());
     if (this.payment !== payment) return;
     if (!hasBalance) {
       await getNetworkParams();
       if (this.payment !== payment) return;
-      const txFeeInLIB = getTransactionFeeWei();
+      const txFeeInLIB = getPaymentFeeWei();
       const balance = BigInt(wallet.assets[assetIndex].balance);
       const amountStr = big2str(amount, 18).slice(0, -16);
       const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
       const balanceStr = big2str(balance, 18).slice(0, -16);
-      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} LIB. Go to the wallet to add more LIB`, 0, 'error');
+      showToast(`Insufficient balance: ${amountStr} + ${feeStr} (fee) > ${balanceStr} WIN. Go to the wallet to add more WIN`, 0, 'error');
       return;
     }
 
@@ -34376,9 +34458,10 @@ class SendAssetConfirmModal {
     try {
       // Send the transaction using postAssetTransfer
       const response = await postAssetTransfer(toAddress, amount, payload, keys, assetIndex);
+      if (this.payment !== payment || myAccount?.keys !== keys) return;
 
-      if (!response || !response.result || !response.result.success) {
-        const str = response.result.reason;
+      if (!response || !['pending', 'unknown'].includes(response.paymentStatus)) {
+        const str = response?.result?.reason || 'Payment was rejected before submission';
         const regex = /toll/i;
 
         if (str.match(regex) || str.match(/at least/i)) {
@@ -34422,9 +34505,12 @@ class SendAssetConfirmModal {
         timestamp: currentTime,
         address: toAddress,
         memo: memo,
-        status: 'sent',
+        status: response.paymentStatus,
+        type: 'transfer',
       };
-      insertSorted(wallet.history, newPayment, 'timestamp');
+      const existingPayment = wallet.history.find((entry) => entry.txid === newPayment.txid);
+      if (existingPayment) Object.assign(existingPayment, newPayment);
+      else insertSorted(wallet.history, newPayment, 'timestamp');
 
       // Don't try to update the balance here; the tx might not have gone through; let user refresh the balance from the wallet page
       // Maybe we can set a timer to check on the status of the tx using txid and update the balance if the txid was processed
@@ -34444,9 +34530,10 @@ class SendAssetConfirmModal {
         my: true, // Sent transfer
         message: memo, // Use the memo as the message content
         amount: amount, // Use the BigInt amount
-        symbol: 'LIB', // TODO: Use the asset symbol
+        symbol: 'WIN', // TODO: Use the asset symbol
         txid: response.txid,
-        status: 'sent',
+        status: response.paymentStatus,
+        type: 'transfer',
       };
       // Insert the transfer message into the contact's message list, maintaining sort order
       insertSorted(myData.contacts[toAddress].messages, transferMessage, 'timestamp');
@@ -34483,7 +34570,11 @@ class SendAssetConfirmModal {
       sendAssetFormModal.usernameAvailable.style.display = 'none';
 
       // Show history modal after successful transaction
+      saveState();
       historyModal.open();
+      showToast(response.paymentStatus === 'unknown'
+        ? 'Payment status unknown. Keep this transaction while the network checks it.'
+        : 'Payment submitted. Waiting for confirmation.', 5000, 'info');
       /*
           const sendToAddressError = document.getElementById('sendToAddressError');
           if (sendToAddressError) {
@@ -34492,7 +34583,7 @@ class SendAssetConfirmModal {
   */
     } catch (error) {
       console.error('Transaction error:', error);
-      //showToast('Transaction failed. Please try again.', 0, 'error');
+      showToast(error.message || 'Unable to submit payment.', 0, 'error');
     }
   }
 }
@@ -34524,7 +34615,7 @@ class ReceiveModal {
     this.displayAddress.addEventListener('click', () => this.copyAddress());
     
     // QR code updates
-    this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
+    // Preserve the entered decimal text; validation rejects invalid or over-precise amounts.
     this.amountInput.addEventListener('input', () => this.scheduleQRCode());
     this.memoInput.addEventListener('input', () => this.scheduleQRCode());
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
@@ -34536,7 +34627,7 @@ class ReceiveModal {
     this.session = { account: myAccount };
     this.amountInput.value = '';
     this.memoInput.value = '';
-    this.receiveBalanceSymbol.textContent = 'LIB';
+    this.receiveBalanceSymbol.textContent = 'WIN';
     this.toggleReceiveBalanceButton.disabled = false;
     this.updateDisplayAddress();
     if (!openModal(this.modal)) {
@@ -34600,15 +34691,16 @@ class ReceiveModal {
     const asset = walletScreen.getLibAsset();
     const paymentData = {
       u: this.session.account.username,
-      i: asset?.id || 'liberdus',
-      s: asset?.symbol || 'LIB',
-      d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase(),
+      i: asset?.id || 'win',
+      s: asset?.symbol || 'WIN',
+      d: String(this.receiveBalanceSymbol.textContent || 'WIN').toUpperCase(),
+      networkId: network.netid,
     };
 
     // Add optional fields if they have values
     const amount = this.amountInput.value.trim();
     if (amount) {
-      paymentData.a = amount;
+      paymentData.a = WinPayments.formatAtomic(WinPayments.parseAtomic(amount));
     }
 
     const memo = this.memoInput.value.trim();
@@ -34690,7 +34782,7 @@ class ReceiveModal {
   }
 
   /**
-   * Toggle LIB/USD display for the receive amount and update the QR accordingly
+   * Toggle WIN/USD display for the receive amount and update the QR accordingly
    */
   async handleToggleBalance() {
     const session = this.session;
@@ -34698,35 +34790,19 @@ class ReceiveModal {
     this.toggleReceiveBalanceButton.disabled = true;
     try {
       const asset = walletScreen.getLibAsset();
-      const tokenSymbol = asset?.symbol || 'LIB';
+      const tokenSymbol = asset?.symbol || 'WIN';
       const isShowingToken = this.receiveBalanceSymbol.textContent !== 'USD';
-      const tokenPrice = Number(asset?.price);
-      let conversionPrice = Number.isFinite(tokenPrice) && tokenPrice > 0 ? tokenPrice : null;
-      if (conversionPrice === null) {
-        await getNetworkParams();
-        if (!this.isCurrentSession(session)) return;
-        const stabilityFactor = getStabilityFactor();
-        conversionPrice = Number.isFinite(stabilityFactor) && stabilityFactor > 0
-          ? stabilityFactor
-          : null;
-      }
-
-      if (conversionPrice === null) {
+      await getNetworkParams();
+      if (!this.isCurrentSession(session)) return;
+      const conversionPrice = parameters?.current?.stabilityFactorStr;
+      if (!conversionPrice) {
         showToast(`${tokenSymbol}/USD price is unavailable`, 2500, 'warning');
         return;
       }
-
+      const amount = this.amountInput.value.trim();
+      const converted = amount ? WinPayments.convertAmount(amount, conversionPrice, isShowingToken) : '';
       this.receiveBalanceSymbol.textContent = isShowingToken ? 'USD' : tokenSymbol;
-      if (this.amountInput.value.trim() !== '') {
-        const currentValue = parseFloat(this.amountInput.value);
-        if (!isNaN(currentValue)) {
-          if (this.receiveBalanceSymbol.textContent === 'USD') {
-            this.amountInput.value = (currentValue * conversionPrice).toString();
-          } else {
-            this.amountInput.value = (currentValue / conversionPrice).toString();
-          }
-        }
-      }
+      this.amountInput.value = converted;
 
       this.updateQRCode();
     } catch (err) {
@@ -36948,21 +37024,13 @@ function removeFailedTx(txid, currentAddress) {
   myData.wallet.history = myData?.wallet?.history?.filter((item) => item.txid !== txid);
 }
 
-async function checkPendingTransaction(txid, submittedts){
-  const now = getCorrectedTimestamp();
-  const duration = (now - submittedts) / 1000   // to make it in seconds
-  let endpointPath = `/transaction/${txid}`;
-  if (duration > 20){
-    endpointPath = `/collector/api/transaction?appReceiptId=${txid}`;
-  }
-  //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
-  const res = await queryNetwork(endpointPath);
-  //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);  
-  if (duration > 30 && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
-    return false;
-  }
-  if (res?.transaction?.success === true) { return true; }
-  if (res?.transaction?.success === false) { return false }
+async function checkPendingTransaction(txid, submittedts) {
+  const duration = getCorrectedTimestamp() - submittedts;
+  let res = await queryNetwork(`/transaction/${txid}`);
+  if (!res?.transaction && duration > 20000) res = await queryNetwork(`/collector/api/transaction?appReceiptId=${txid}`);
+  if (res?.transaction?.txId !== txid) return null;
+  if (res.transaction.success === true) return true;
+  if (res.transaction.success === false) return false;
   return null;
 }
 
@@ -37069,6 +37137,41 @@ async function checkPendingTransactionsOnce() {
         if (myAccount !== account) return;
       }
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
+      if (type === 'transfer') {
+        // The validator's committed receipt cache remains a fallback when the collector lags.
+        if (!res?.transaction && submittedts < twentySecondsAgo) {
+          res = await queryNetwork(`/transaction/${txid}`);
+          if (myAccount !== account) return;
+        }
+        const status = WinPayments.receiptStatus(res?.transaction, txid, pendingTxInfo.networkId || network.netid);
+        if (status === 'unknown') {
+          const next = submittedts < thirtySecondsAgo ? 'unknown' : 'pending';
+          if (pendingTxInfo.status !== next) {
+            pendingTxInfo.status = next;
+            updateTransactionStatus(txid, pendingTxInfo.to, next, type);
+            didMutatePendingState = true;
+          }
+          continue;
+        }
+        pendingTxInfo.status = status;
+        updateTransactionStatus(txid, pendingTxInfo.to, status, type);
+        didMutatePendingState = true;
+        if (status === 'confirmed') showToast('Payment confirmed.', 3000, 'success');
+      }
+      if (['profile', 'contract', 'endorsement', 'skill'].includes(type)) {
+        let status = winReceiptState(res?.transaction, txid, network.netid, type);
+        if (status === 'pending' && submittedts < twentySecondsAgo) {
+          res = await queryNetwork(`/transaction/${txid}`);
+          if (myAccount !== account) return;
+          status = winReceiptState(res?.transaction, txid, network.netid, type);
+        }
+        // A delayed or mismatched receipt is not a failure and must not prompt a duplicate write.
+        if (status === 'pending') continue;
+        removePendingTransaction(txid);
+        didMutatePendingState = true;
+        showToast(status === 'confirmed' ? `WIN ${type} confirmed. Refresh the workspace to view it.` : `WIN ${type} failed: ${res.transaction.reason || 'Network validation rejected the action.'}`, 6000, status === 'confirmed' ? 'success' : 'error');
+        continue;
+      }
       const receipt = res?.transaction;
       const confirmationTimedOut = isPendingMessage
         ? receipt?.success !== true && receipt?.success !== false
@@ -37407,7 +37510,7 @@ async function getNetworkParams(forceRefresh = false) {
 
   // If offline, try to use cached parameters
   if (!isOnline) {
-    const cachedParams = localStorage.getItem('cachedNetworkParams');
+    const cachedParams = localStorage.getItem(`cachedNetworkParams:${network.netid}`);
     if (cachedParams) {
       try {
         parameters = parse(cachedParams);
@@ -37429,7 +37532,7 @@ async function getNetworkParams(forceRefresh = false) {
       getNetworkParams.timestamp = now;
       
       // Cache all network parameters for offline use
-      localStorage.setItem('cachedNetworkParams', stringify(parameters));
+      localStorage.setItem(`cachedNetworkParams:${network.netid}`, stringify(parameters));
       
       // if network id from network.js is not the same as the parameters.current.networkId
       if (network.netid !== parameters.networkId) {
@@ -39092,7 +39195,7 @@ function getNetworkMinTollLibWei() {
   return EthNum.toWei(EthNum.div(parameters.current.minTollUsdStr, parameters.current.stabilityFactorStr)) || 0n;
 }
 
-function normalizeTollToLibWei(tollWei, tollUnit = 'LIB') {
+function normalizeTollToLibWei(tollWei, tollUnit = 'WIN') {
   const safeToll = typeof tollWei === 'bigint' ? tollWei : 0n;
   if (safeToll === 0n) {
     return 0n;
@@ -39131,12 +39234,12 @@ function getTransactionFeeWei(options = {}) {
 }
 
 /**
- * Returns current LIB balance from local wallet state.
+ * Returns current WIN balance from local wallet state.
  * Falls back to first asset for compatibility with existing wallet structure.
  * @returns {bigint}
  */
 function getLibBalanceWei() {
-  const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'LIB') || myData?.wallet?.assets?.[0];
+  const libAsset = (myData?.wallet?.assets || []).find((asset) => asset?.symbol === 'WIN') || myData?.wallet?.assets?.[0];
   return BigInt(libAsset?.balance ?? 0n);
 }
 
@@ -39770,3 +39873,51 @@ class FullImageCache {
 }
 
 const fullImageCache = new FullImageCache(thumbnailCache);
+
+
+// Keep signing inside the existing account boundary. UI modules receive public identity only.
+const winWorkspace = createWinWorkspace({
+  session: () => myAccount?.keys ? { address: longAddress(myAccount.keys.address), evmAddress: '0x' + normalizeAddress(myAccount.keys.address), networkId: network.netid } : null,
+  read: path => queryNetwork(path, AbortSignal.timeout(15000)),
+  async prepare(type, action, record, payload, extra) {
+    const account = myAccount;
+    if (!account?.keys || !REGISTRIES[type]) throw new Error('Sign in to a WIN wallet first.');
+    const response = await queryNetwork('/network/parameters');
+    if (myAccount !== account) throw new Error('Wallet changed. Review the action again.');
+    if (response?.protocol?.networkId !== network.netid) throw new Error('The gateway is connected to a different WIN network.');
+    const randomId = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');
+    const tx = { type, action, from: longAddress(account.keys.address), to: REGISTRIES[type], objectId: record?.id || randomId,
+      expectedRevision: record?.revision || 0, networkId: network.netid, timestamp: getCorrectedTimestamp(),
+      ...(payload ? { payload } : {}), ...extra };
+    tx.fee = objectFee(tx, response.protocol.proofOfSkill, stringify);
+    const funds = await queryNetwork(`/account/${tx.from}/balance`, AbortSignal.timeout(15000));
+    if (myAccount !== account) throw new Error('Wallet changed. Review the action again.');
+    if (typeof funds?.balance !== 'bigint') throw new Error('Unable to verify your native WIN balance. Refresh the wallet and retry.');
+    if (funds.balance < tx.fee) throw new Error('This action needs native WIN for its network fee. Receive native WIN at your native address; BNB-chain WIN is a separate balance.');
+    if (new TextEncoder().encode(stringify(tx)).length > 250 * 1024) throw new Error('Record exceeds the network size limit.');
+    return tx;
+  },
+  async submit(prepared) {
+    const account = myAccount;
+    if (!account?.keys || longAddress(account.keys.address) !== prepared.from || prepared.networkId !== network.netid) throw new Error('Signing wallet or network changed.');
+    const response = await queryNetwork('/network/parameters');
+    if (response?.protocol?.networkId !== prepared.networkId) throw new Error('Gateway network changed.');
+    const tx = { ...prepared, timestamp: getCorrectedTimestamp() };
+    if (objectFee(tx, response.protocol.proofOfSkill, stringify) !== prepared.fee) throw new Error('Network fee changed. Review the action again.');
+    if (myAccount !== account) throw new Error('Signing wallet changed.');
+    const txId = await signObj(tx, account.keys);
+    if (myAccount !== account) throw new Error('Signing wallet changed.');
+    const result = await injectTx(tx, txId, account);
+    if (result?.result?.success !== true) throw new Error(result?.result?.reason || 'The network did not accept this transaction.');
+    saveState();
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (myAccount !== account) return { txId, status: 'pending' };
+      const receipt = (await queryNetwork('/transaction/' + txId))?.transaction;
+      const status = winReceiptState(receipt, txId, tx.networkId, tx.type);
+      if (status === 'failed') throw new Error(receipt.reason || 'The transaction failed during network validation.');
+      if (status === 'confirmed') return { txId, status };
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    return { txId, status: 'pending' };
+  },
+});
