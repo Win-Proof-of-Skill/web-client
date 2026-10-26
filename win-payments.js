@@ -2,7 +2,7 @@
 // This module has no network or wallet-key access.
 (function (root) {
   const scale = 10n ** 18n;
-  const protectedAddresses = new Set(['1', '2', '3', '4', '5'].map((prefix) => prefix + '0'.repeat(63)));
+  const protectedAddresses = new Set(['0', '1', '2', '3', '4', '5', '6'].map((prefix) => prefix + '0'.repeat(63)));
   function parseAtomic(value) {
     if (typeof value !== 'string' || !/^(?:\d+(?:\.\d{0,18})?|\.\d{1,18})$/.test(value.trim())) {
       throw new Error('Enter a decimal amount with at most 18 decimal places.');
@@ -29,7 +29,16 @@
     if (receipt.success === false) return 'failed';
     return 'unknown';
   }
+  function operationFee(amount) {
+    if (typeof amount !== "bigint" || amount < 0n) throw new Error("Invalid WIN amount");
+    return (amount * 50n + 9999n) / 10000n;
+  }
+  function maxTransfer(balance) {
+    if (typeof balance !== "bigint" || balance < 0n) throw new Error("Invalid WIN balance");
+    return balance * 10000n / 10050n;
+  }
   root.WinPayments = Object.freeze({
+    operationFee, maxTransfer,
     parseAtomic, formatAtomic, convertAmount, receiptStatus,
     isProtectedAddress: (address) => protectedAddresses.has(address),
   });

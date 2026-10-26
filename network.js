@@ -14,7 +14,8 @@ const network = {
     }
   ],
   "payment": {
-    "transferFee": "100000000000000000"
+    "transferFeeBps": 50,
+    "feeRecipient": "9fe734826be44b76f06d1d3262130dce45076a3c000000000000000000000000"
   },
   "bridges": [],
   "faucetUrl": "",

@@ -1262,3 +1262,13 @@ code {
 .wallet-actions-break {
   display: none;
 }
+
+/* Retired features stay inaccessible even when legacy code toggles a class. */
+[data-win-retired="messaging"] { display: none !important; }
+
+[data-win-retired="external-assets"] { display: none !important; }
+
+[data-win-retired="account-controls"] { display:none !important; }
+#winBridgeDialog code,
+#winBridgeDialog .win-row small { overflow-wrap: anywhere; }
+#winBridgeReview:not(:empty) { margin-top: 20px; padding: 20px; background: var(--win-soft, #f3f7f1); border: 1px solid var(--win-line); border-radius: 12px; }

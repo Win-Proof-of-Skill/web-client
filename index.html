@@ -93,7 +93,7 @@
         </div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
-          <button class="icon-button" id="upcomingCallsBtn" style="display: none;"></button>
+          <button class="icon-button" id="upcomingCallsBtn" hidden inert data-win-retired="messaging" style="display: none;"></button>
           <button
             class="icon-button"
             id="daoNotificationsBtn"
@@ -130,7 +130,7 @@
         <a class="last-item" href="#" id="welcomeScreenLastItem"> </a>
       </div>
 
-      <div class="app-screen" id="chatsScreen">
+      <div class="app-screen" id="chatsScreen" hidden inert data-win-retired="messaging">
         <!-- search bar -->
         <div class="search-bar-container" id="searchBarContainer">
           <div class="search-bar">
@@ -178,7 +178,7 @@
           <!-- Contact items will be inserted here -->
         </ul>
       </div>
-      <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
+      <button class="floating-button" id="newChatButton" hidden inert data-win-retired="messaging" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
         <section class="win-wallet-intro"><span class="win-kicker">YOUR WIN WALLET</span><h2>Built for your next chapter.</h2><p>One identity. Separate balances on WIN and BNB Chain.</p></section>
@@ -227,17 +227,17 @@
             <span class="action-label">Faucet</span>
           </button>
         </div>
-        <div class="wallet-assets">
+        <div class="wallet-assets" hidden inert data-win-retired="external-assets">
           <h3 class="section-title">Other assets</h3>
           <div class="wallet-asset-groups">
-            <button type="button" class="wallet-asset-summary" id="multichainSummary">
+            <button type="button" class="wallet-asset-summary" id="multichainSummary" hidden inert data-win-retired="external-assets">
               <span class="wallet-asset-group-icon" aria-hidden="true"></span>
               <span class="wallet-asset-summary-label">Multichain</span>
               <span class="wallet-asset-summary-value" id="multichainSummaryValue">$0.00</span>
               <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
             </button>
             <div class="wallet-asset-summary-divider" aria-hidden="true"></div>
-            <button type="button" class="wallet-asset-summary" id="evmAssetsSummary">
+            <button type="button" class="wallet-asset-summary" id="evmAssetsSummary" hidden inert data-win-retired="external-assets">
               <span class="wallet-asset-group-icon" aria-hidden="true"></span>
               <span class="wallet-asset-summary-label">EVM Assets</span>
               <span class="wallet-asset-summary-value" id="evmAssetsSummaryValue">N/A</span>
@@ -245,7 +245,7 @@
             </button>
           </div>
         </div>
-        <section class="win-bnb-card"><div class="win-card-top"><span class="win-kicker">BNB CHAIN · MAINNET</span><button class="win-link-button" data-win-action="bnb-refresh" aria-label="Refresh BNB-chain WIN balance">↻ Refresh</button></div><h2>WIN on BNB Chain</h2><strong class="win-bnb-balance" id="winBnbBalance">Not loaded</strong><p>Fund your wallet with the real WIN token.</p><label>BNB receiving address</label><code id="winBnbAddress"></code><div class="win-actions"><button class="win-button" data-win-action="fund">+ Fund wallet</button><button class="win-button secondary" data-win-action="copy-bnb">Copy address</button></div><p class="win-help">BNB-chain WIN and native WIN are separate balances. A bridge is required to move funds between networks. Native fees need native WIN.</p><a href="https://bscscan.com/token/0x8a27363dd26f78b09014338e106b16055fcb9799" target="_blank" rel="noopener noreferrer">View WIN token contract ↗</a><div id="winBnbHistory"></div></section>
+        <section class="win-bnb-card"><div class="win-card-top"><span class="win-kicker">BNB CHAIN · MAINNET</span><button class="win-link-button" data-win-action="bnb-refresh" aria-label="Refresh BNB-chain WIN balance">↻ Refresh</button></div><h2>WIN on BNB Chain</h2><strong class="win-bnb-balance" id="winBnbBalance">Not loaded</strong><p>Fund your wallet with the real WIN token.</p><label>BNB receiving address</label><code id="winBnbAddress"></code><div class="win-actions"><button class="win-button" data-open-win-bridge>⇄ Convert WIN</button><button class="win-button" data-win-action="fund">+ Fund wallet</button><button class="win-button secondary" data-win-action="copy-bnb">Copy address</button></div><p class="win-help">Convert at 1:1 with a separate 0.5% native WIN fee. BNB gas is paid separately. Conversion is available after the bridge deployment is activated.</p><a href="https://bscscan.com/token/0x8a27363dd26f78b09014338e106b16055fcb9799" target="_blank" rel="noopener noreferrer">View WIN token contract ↗</a><div id="winBnbHistory"></div></section>
       </div>
 
       <section class="app-screen win-screen" id="profilesScreen" data-view="profiles" aria-label="Profile directory">
@@ -267,7 +267,7 @@
         <div class="nav-buttons">
           <button class="nav-button" id="switchToProfiles" data-win-view="profiles">Profiles</button>
           <button class="nav-button" id="switchToContracts" data-win-view="contracts">Contracts</button>
-          <button class="nav-button" id="switchToChats">Chats</button>
+          <button class="nav-button" id="switchToChats" hidden inert data-win-retired="messaging">Chats</button>
           <button class="nav-button" id="switchToContacts">Contacts</button>
           <button class="nav-button" id="switchToWallet">Wallet</button>
         </div>
@@ -276,7 +276,7 @@
       </footer>
 
       <!-- New Chat Modal -->
-      <div class="modal fixed-header" id="newChatModal">
+      <div class="modal fixed-header" id="newChatModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeNewChatModal"></button>
           <div class="modal-title">New Chat</div>
@@ -329,12 +329,12 @@
         <div class="modal-content">
           <ul class="menu-list">
             <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
-            <li class="menu-item" id="openAssets" data-icon="assets">EVM Assets</li>
-            <li class="menu-item" id="openMultichain" data-icon="multichain">Multichain</li>
+            <li class="menu-item" id="openAssets" hidden inert data-win-retired="external-assets" data-icon="assets">EVM Assets</li>
+            <li class="menu-item" id="openMultichain" hidden inert data-win-retired="external-assets" data-icon="multichain">Multichain</li>
             <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
             <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
             <li class="menu-item" id="openDao" data-icon="dao" style="display: none;">DAO</li>
-            <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
+            <li class="menu-item" hidden inert data-win-retired="external-assets" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
             <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
             <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
             <li class="menu-item" id="openLogs" data-icon="file-text">Logs</li>
@@ -348,7 +348,7 @@
       </div>
 
       <!-- Connected EVM Assets Modal -->
-      <div class="modal fixed-header" id="assetsModal">
+      <div class="modal fixed-header" id="assetsModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeAssetsModal"></button>
           <div class="modal-title">EVM Assets</div>
@@ -392,10 +392,10 @@
 
 
       <!-- Connected EVM Asset Details Modal -->
-      <div class="modal fixed-header" id="assetDetailsModal">
+      <div class="modal fixed-header" id="assetDetailsModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeAssetDetailsModal"></button>
-          <div class="modal-title" id="assetDetailsModalTitle">Asset Details</div>
+          <div class="modal-title" id="assetDetailsModalTitle" hidden inert data-win-retired="external-assets">Asset Details</div>
         </div>
         <div class="modal-content asset-details-content">
           <section class="asset-detail-hero">
@@ -807,12 +807,12 @@
         </div>
         <div class="modal-content">
           <ul class="menu-list">
-            <li class="menu-item" id="openCallsModal" data-icon="call">Calls</li>
+            <li class="menu-item" id="openCallsModal" hidden inert data-win-retired="messaging" data-icon="call">Calls</li>
             <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
             <li class="menu-item" id="openManageContactsModal" data-icon="contacts">Contacts</li>
-            <li class="menu-item" id="openChatSettingsModal" data-icon="chat">Chat</li>
-            <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
-            <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
+            <li class="menu-item" id="openChatSettingsModal" hidden inert data-win-retired="messaging" data-icon="chat">Chat</li>
+            <li class="menu-item" id="openToll" hidden inert data-win-retired="messaging" data-icon="dollar-sign">Toll</li>
+            <li class="menu-item" id="openLockModal" hidden inert data-win-retired="account-controls" data-icon="lock">Lock</li>
             <li class="menu-item" id="openSecretModal" data-icon="key">Secret</li>
             <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
             <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
@@ -824,7 +824,7 @@
       </div>
 
       <!-- Chat Settings Modal -->
-      <div class="modal fixed-header" id="chatSettingsModal">
+      <div class="modal fixed-header" id="chatSettingsModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeChatSettingsModal"></button>
           <div class="modal-title">Chat</div>
@@ -903,13 +903,7 @@
         </div>
         <div class="modal-content">
           <ul class="menu-list">
-            <li class="menu-item" id="welcomeOpenBackup" data-icon="download">Backup</li>
-            <li class="menu-item" id="welcomeOpenRestore" data-icon="rotate-ccw">Restore</li>
-            <li class="menu-item" id="welcomeOpenLockModal" data-icon="lock">Lock</li>
-            <li class="menu-item" id="welcomeOpenRemove" data-icon="trash-2">Remove</li>
-            <li class="menu-item" id="welcomeOpenMigrate" data-icon="shuffle">Migrate</li>
-            <li class="menu-item" id="welcomeOpenLaunch" data-icon="launch" style="display: none;">Launch</li>
-            <li class="menu-item" id="welcomeOpenUpdate" data-icon="smartphone" style="display: none;">Update</li>
+            <li class="menu-item" id="welcomeOpenRestore" data-icon="rotate-ccw">Restore from file</li>
             <li class="menu-item" id="welcomeOpenHelp" data-icon="github">Help</li>
             <li class="menu-item" id="welcomeOpenAbout" data-icon="info">About</li>
           </ul>
@@ -1040,7 +1034,7 @@
       <div class="modal fixed-header" id="lockModal">
         <div class="modal-header">
           <button class="back-button" id="closeLockModal"></button>
-          <div class="modal-title">Lock</div>
+          <div class="modal-title">Wallet password</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -1083,7 +1077,7 @@
       <div class="modal fixed-header" id="unlockModal">
         <div class="modal-header">
           <button class="back-button" id="closeUnlockModal"></button>
-          <div class="modal-title">Unlock</div>
+          <div class="modal-title">Sign in with password</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -1093,7 +1087,7 @@
                 <input type="password" id="password" class="form-control" required />
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Unlock</button>
+                <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Continue</button>
               </div>
             </form>
           </div>
@@ -1235,7 +1229,7 @@
                 <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Create Account</button>
               </div>
             </form>
-            <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
+            <div class="form-group" id="migrateAccountsSection" hidden inert data-win-retired="account-controls" style="display: none; margin-top: 50px; padding: 0 16px">
               <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
               <div class="form-actions">
                 <button type="button" id="migrateAccountsButton" class="btn btn--secondary btn--pill btn--full">
@@ -1425,11 +1419,11 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="importForm" class="form--narrow">
-              <div class="form-group">
-                <label for="restoreSourceLocation">Source Location</label>
-                <select id="restoreSourceLocation" class="form-control">
+              <div class="form-group" hidden inert data-win-retired="account-controls">
+                <label hidden for="restoreSourceLocation">Source Location</label>
+                <select hidden id="restoreSourceLocation" class="form-control">
                   <option value="local" selected>Local</option>
-                  <option value="google-drive">Google Drive</option>
+                  <option hidden disabled value="google-drive">Google Drive</option>
                 </select>
               </div>
               <div class="form-group" id="localFileGroup">
@@ -1475,14 +1469,14 @@
               <div class="form-actions">
                 <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Load Account</button>
               </div>
-              <div class="form-group">
+              <div class="form-group" hidden inert data-win-retired="account-controls">
                 <label>
-                  <input type="checkbox" id="developerOptionsToggle"> 
+                  <input type="checkbox" id="developerOptionsToggle" hidden disabled>
                   Developer Options
                 </label>
               </div>
               <!-- Developer options section (initially hidden) -->
-              <div id="developerOptionsSection" class="developer-options" style="display: none;">
+              <div hidden inert data-win-retired="account-controls" id="developerOptionsSection" class="developer-options" style="display: none;">
                 <div class="form-group">
                   <label for="oldStringSelect">Old String</label>
                   <select id="oldStringSelect" class="form-control">
@@ -1533,7 +1527,7 @@
       </div>
 
       <!-- Calls Modal -->
-      <div class="modal fixed-header" id="callsModal">
+      <div class="modal fixed-header" id="callsModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeCallsModal"></button>
           <div class="modal-title">Calls</div>
@@ -1587,7 +1581,7 @@
       </template>
 
       <!-- Group Call Participants Modal -->
-      <div class="modal modal-dialog" id="groupCallParticipantsModal">
+      <div class="modal modal-dialog" id="groupCallParticipantsModal" hidden inert data-win-retired="messaging">
         <div class="dialog-box-content">
           <div class="modal-header">
             <button class="back-button" id="closeGroupCallParticipantsModal"></button>
@@ -1616,7 +1610,7 @@
       </template>
 
       <!-- Chat Modal -->
-      <div class="modal fixed-header" id="chatModal">
+      <div class="modal fixed-header" id="chatModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeChatModal"></button>
           <div class="chat-user-info">
@@ -1725,7 +1719,7 @@
            After chatModal on purpose: modals stack in document order, and a
            send screen or token picker opened from a conversation has to sit
            above it. -->
-      <div class="modal fixed-header" id="multichainModal">
+      <div class="modal fixed-header" id="multichainModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainModal"></button>
           <div class="modal-title">Multichain</div>
@@ -1770,10 +1764,10 @@
       </div>
 
       <!-- One asset: what you hold, and the things you can do with it. -->
-      <div class="modal fixed-header" id="multichainAssetModal">
+      <div class="modal fixed-header" id="multichainAssetModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainAssetModal"></button>
-          <div class="modal-title" id="multichainAssetTitle">Asset</div>
+          <div class="modal-title" id="multichainAssetTitle" hidden inert data-win-retired="external-assets">Asset</div>
         </div>
         <div class="modal-content">
           <section class="multichain-asset-hero">
@@ -1811,10 +1805,10 @@
       </div>
 
       <!-- Receive: the address is the whole screen. -->
-      <div class="modal fixed-header" id="multichainReceiveModal">
+      <div class="modal fixed-header" id="multichainReceiveModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainReceiveModal"></button>
-          <div class="modal-title" id="multichainReceiveTitle">Receive</div>
+          <div class="modal-title" id="multichainReceiveTitle" hidden inert data-win-retired="external-assets">Receive</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen" id="multichainReceiveBody"></div>
@@ -1822,10 +1816,10 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <div class="modal fixed-header" id="multichainWithdrawModal">
+      <div class="modal fixed-header" id="multichainWithdrawModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainWithdrawModal"></button>
-          <div class="modal-title" id="multichainWithdrawTitle">Withdraw</div>
+          <div class="modal-title" id="multichainWithdrawTitle" hidden inert data-win-retired="external-assets">Withdraw</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen multichain-swap">
@@ -1884,10 +1878,10 @@
       <!-- Swap: what you pay and what you get, with the estimate live as you
            type. The asset you pay with is the one this screen was opened from;
            the one you get is chosen on the picker below. -->
-      <div class="modal fixed-header" id="multichainSwapModal">
+      <div class="modal fixed-header" id="multichainSwapModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainSwapModal"></button>
-          <div class="modal-title" id="multichainSwapTitle">Swap</div>
+          <div class="modal-title" id="multichainSwapTitle" hidden inert data-win-retired="external-assets">Swap</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen multichain-swap">
@@ -1931,10 +1925,10 @@
 
       <!-- Who to send to, when sending starts from the wallet rather than a
            conversation. -->
-      <div class="modal fixed-header" id="chatSendContactModal">
+      <div class="modal fixed-header" id="chatSendContactModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeChatSendContactModal"></button>
-          <div class="modal-title" id="chatSendContactTitle">Send to</div>
+          <div class="modal-title" id="chatSendContactTitle" hidden inert data-win-retired="external-assets">Send to</div>
         </div>
         <div class="modal-content">
           <div class="multichain-picker">
@@ -1951,10 +1945,10 @@
 
       <!-- Sending to the person a conversation is with. The recipient is the
            chat, so the screen asks only what and how much. -->
-      <div class="modal fixed-header" id="chatSendModal">
+      <div class="modal fixed-header" id="chatSendModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeChatSendModal"></button>
-          <div class="modal-title" id="chatSendTitle">Send</div>
+          <div class="modal-title" id="chatSendTitle" hidden inert data-win-retired="external-assets">Send</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen multichain-swap" id="chatSendForm">
@@ -1997,10 +1991,10 @@
       </div>
 
       <!-- Choosing a token: search, what you hold, the popular coins, then everything else. -->
-      <div class="modal fixed-header" id="multichainTokenPickerModal">
+      <div class="modal fixed-header" id="multichainTokenPickerModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainTokenPickerModal"></button>
-          <div class="modal-title" id="multichainTokenPickerTitle">Choose a token</div>
+          <div class="modal-title" id="multichainTokenPickerTitle" hidden inert data-win-retired="external-assets">Choose a token</div>
         </div>
         <div class="modal-content">
           <div class="multichain-picker">
@@ -2015,10 +2009,10 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <div class="modal fixed-header" id="multichainConfirmModal">
+      <div class="modal fixed-header" id="multichainConfirmModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainConfirmModal"></button>
-          <div class="modal-title" id="multichainConfirmTitle">Confirm</div>
+          <div class="modal-title" id="multichainConfirmTitle" hidden inert data-win-retired="external-assets">Confirm</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen">
@@ -2055,7 +2049,7 @@
       </div>
 
       <!-- Call Schedule Choice Modal -->
-      <div class="modal modal-dialog" id="callScheduleChoiceModal">
+      <div class="modal modal-dialog" id="callScheduleChoiceModal" hidden inert data-win-retired="messaging">
         <div class="dialog-box-content">
           <div class="modal-header">
             <button class="back-button" id="closeCallScheduleChoiceModal"></button>
@@ -2373,7 +2367,7 @@
       </div>
 
       <!-- Call Invite Modal -->
-      <div class="modal fixed-header" id="callInviteModal">
+      <div class="modal fixed-header" id="callInviteModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeCallInviteModal"></button>
           <div class="modal-title">Call Invite</div>
@@ -2403,7 +2397,7 @@
       </div>
 
       <!-- Share Attachment Modal -->
-      <div class="modal fixed-header" id="shareAttachmentModal">
+      <div class="modal fixed-header" id="shareAttachmentModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeShareAttachmentModal"></button>
           <div class="modal-title">Share Attachment</div>
@@ -2467,7 +2461,7 @@
       </div>
 
       <!-- Share Contacts Modal -->
-      <div class="modal fixed-header" id="shareContactsModal">
+      <div class="modal fixed-header" id="shareContactsModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeShareContactsModal"></button>
           <div class="modal-title">Contacts to share</div>
@@ -2559,11 +2553,11 @@
           <div class="modal-title">Contact Info</div>
           <!-- Add header actions container -->
           <div class="header-actions">
-            <button class="icon-button chat-icon" id="contactInfoChatButton" aria-label="Open chat"></button>
+            <button class="icon-button chat-icon" id="contactInfoChatButton" hidden inert data-win-retired="messaging" aria-label="Open chat"></button>
             <button class="icon-button send-money-icon" id="contactInfoSendButton" aria-label="Send money"></button>
             <button
               class="icon-button add-friend-icon"
-              id="addFriendButtonContactInfo"
+              id="addFriendButtonContactInfo" hidden inert data-win-retired="messaging"
               aria-label="Add friend"
             ></button>
           </div>
@@ -2644,7 +2638,7 @@
       </div>
 
       <!-- Friend Modal -->
-      <div class="modal fixed-header" id="friendModal">
+      <div class="modal fixed-header" id="friendModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeFriendModal"></button>
           <div class="modal-title">Contact Status</div>
@@ -2749,7 +2743,7 @@
       </div>
 
       <!-- EVM Receive Modal -->
-      <div class="modal fixed-header" id="evmReceiveModal">
+      <div class="modal fixed-header" id="evmReceiveModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeEvmReceiveModal"></button>
           <div class="modal-title">Receive</div>
@@ -2930,7 +2924,7 @@
       </div>
 
       <!-- EVM Send Modal -->
-      <div class="modal fixed-header" id="evmSendModal">
+      <div class="modal fixed-header" id="evmSendModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeEvmSendModal"></button>
           <div class="modal-title">Send</div>
@@ -3049,7 +3043,7 @@
       </div>
 
       <!-- EVM Send Confirmation Modal -->
-      <div class="modal fixed-header" id="evmSendConfirmModal">
+      <div class="modal fixed-header" id="evmSendConfirmModal" hidden inert data-win-retired="external-assets">
         <div class="modal-header">
           <button class="back-button" id="closeEvmSendConfirmModal"></button>
           <div class="modal-title">Confirm Transaction</div>
@@ -3208,7 +3202,7 @@
                 <label for="backupStorageLocation">Storage Location</label>
                 <select id="backupStorageLocation" class="form-control">
                   <option value="local" selected>Local</option>
-                  <option value="google-drive">Google Drive</option>
+                  <option hidden disabled value="google-drive">Google Drive</option>
                 </select>
               </div>
               <div class="form-group">
@@ -3249,7 +3243,7 @@
       </div>
 
       <!-- Add search modal before the other modals -->
-      <div class="modal search-modal" id="messageSearchModal">
+      <div class="modal search-modal" id="messageSearchModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeSearchModal"></button>
           <div class="modal-title">Search Messages</div>
@@ -3535,7 +3529,7 @@
       </div>
 
       <!-- Toll Modal -->
-      <div class="modal fixed-header" id="tollModal">
+      <div class="modal fixed-header" id="tollModal" hidden inert data-win-retired="messaging">
         <div class="modal-header">
           <button class="back-button" id="closeTollModal"></button>
           <div class="modal-title">Toll Settings</div>
@@ -3767,7 +3761,7 @@
       </div>
 
       <!-- Migrate Accounts Modal -->
-      <div class="modal fixed-header" id="migrateAccountsModal">
+      <div class="modal fixed-header" id="migrateAccountsModal" hidden inert data-win-retired="account-controls">
         <div class="modal-header">
           <button class="back-button" id="closeMigrateAccountsModal"></button>
           <div class="modal-title">Migrate Accounts</div>
@@ -3824,5 +3818,6 @@
       <div class="toast-update-title">New App Update Available</div>
       <a href="#" class="toast-update-button" id="updateToastButton">Update now</a>
     </template>
-  </body>
+  <dialog id="winBridgeDialog" class="win-dialog"><div class="win-dialog-header"><h2>Convert WIN</h2><button type="button" class="win-link-button" data-bridge-close aria-label="Close bridge">✕</button></div><div class="win-dialog-body"></div><p class="win-dialog-error" role="status" aria-live="polite"></p></dialog>
+</body>
 </html>

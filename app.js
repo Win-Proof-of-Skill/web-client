@@ -1,9 +1,14 @@
+import { decodeBackup, backupAccountKey } from './win-backup.mjs';
+import { createBridgeUI } from './win-bridge-ui.mjs';
+import { bnbRpc } from './win-bnb.mjs';
+import { hashHex, validateBridgeConfig } from './win-bridge.mjs';
+import { EXTERNAL_ASSETS_ENABLED, MESSAGING_ENABLED, assertWalletTransaction, walletView } from './win-features.mjs';
 import { highlightText, secureGateway, protectAccount, rekeyAccounts } from './win-security.mjs';
 import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'x'; // Also increment this when you increment version.html
+const version = 'y'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -57,6 +62,11 @@ async function checkVersion() {
       'win-workspace.mjs',
       'win-domain.mjs',
       'win-security.mjs',
+      'win-features.mjs',
+      'win-backup.mjs',
+      'win-bridge.mjs',
+      'win-bridge-flow.mjs',
+      'win-bridge-ui.mjs',
       'win-bnb.mjs',
       'win-pdf.mjs',
       'external/pdf-lib.esm.min.mjs',
@@ -235,6 +245,7 @@ import {
 
 import {
   evmAssets,
+  signEvmTransaction,
   EVM_CHAT_MESSAGE_TYPE,
   parseEvmTransferMessage,
   evmPaymentId,
@@ -267,7 +278,7 @@ const IS_DEV_NETWORK = network?.name === 'Devnet';
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
 let timeSkew = 0;
-let useLongPolling = true;
+let useLongPolling = MESSAGING_ENABLED;
 let longPollTimeoutId = null;
 let isLongPolling = false;
 let longPollAbortController = null;
@@ -573,10 +584,10 @@ function clearMyData() {
   myAccount = null;
   walletScreen.reset();
   stopEvmPaymentChecks();
-  evmAssets.reset();
+  if (EXTERNAL_ASSETS_ENABLED) evmAssets.reset();
   sendAssetFormModal.reset();
   receiveModal.close();
-  multichain.reset();
+  if (EXTERNAL_ASSETS_ENABLED) multichain.reset();
   daoRepo.reset();
   daoModal.resetNotificationState();
   resetDaoNotificationSummary();
@@ -878,13 +889,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   walletScreen.load();
 
   // Connected EVM assets
-  evmAssets.load();
+  if (EXTERNAL_ASSETS_ENABLED) evmAssets.load();
 
   // Sending an intents balance inside a conversation
-  chatPaymentPanel.load();
+  if (EXTERNAL_ASSETS_ENABLED) chatPaymentPanel.load();
 
   // Multichain (NEAR Intents) assets
-  multichain.load();
+  if (EXTERNAL_ASSETS_ENABLED) multichain.load();
 
   // About and Contact Modals
   sourceModal.load();
@@ -1109,7 +1120,7 @@ function handleVisibilityChange() {
       reactNativeApp.handleNativeAppUnsubscribe();
     }
     if (reactNativeApp.isReactNativeWebView) {
-      useLongPolling = true;
+      useLongPolling = MESSAGING_ENABLED;
       setTimeout(longPoll, 10);
     }
     // if chatModal was opened, check if message count changed while hidden
@@ -1506,59 +1517,17 @@ class WelcomeScreen {
 const welcomeScreen = new WelcomeScreen();
 
 class WelcomeMenuModal {
-  constructor() {}
-
   load() {
     this.modal = document.getElementById('welcomeMenuModal');
     lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
-    this.closeButton = document.getElementById('closeWelcomeMenu');
-    this.closeButton.addEventListener('click', () => this.close());
-
-    this.backupButton = document.getElementById('welcomeOpenBackup');
-    this.restoreButton = document.getElementById('welcomeOpenRestore');
-    this.removeButton = document.getElementById('welcomeOpenRemove');
-    this.migrateButton = document.getElementById('welcomeOpenMigrate');
-    this.aboutButton = document.getElementById('welcomeOpenAbout');
-    this.launchButton = document.getElementById('welcomeOpenLaunch');
-    this.lockButton = document.getElementById('welcomeOpenLockModal');
-    this.updateButton = document.getElementById('welcomeOpenUpdate');
-    this.helpButton = document.getElementById('welcomeOpenHelp');
-
-    this.backupButton.addEventListener('click', () => backupModal.open());
-    this.restoreButton.addEventListener('click', () => importModal.open());
-    this.removeButton.addEventListener('click', () => removeAccountsModal.open());
-    this.migrateButton.addEventListener('click', () => migrateAccountsModal.open());
-    this.aboutButton.addEventListener('click', () => aboutModal.open());
-    this.lockButton.addEventListener('click', () => lockModal.open());
-    this.helpButton.addEventListener('click', () => helpModal.open());
-
-    // Show launch button if ReactNativeWebView is available
-    if (window?.ReactNativeWebView) {
-      this.launchButton.addEventListener('click', () => launchModal.open());
-      this.launchButton.style.display = 'flex';
-      this.updateButton.addEventListener('click', () => aboutModal.openStore());
-      this.updateButton.style.display = 'flex';
-    }
+    document.getElementById('closeWelcomeMenu').addEventListener('click', () => this.close());
+    document.getElementById('welcomeOpenRestore').addEventListener('click', () => importModal.open());
+    document.getElementById('welcomeOpenHelp').addEventListener('click', () => helpModal.open());
+    document.getElementById('welcomeOpenAbout').addEventListener('click', () => aboutModal.open());
   }
-
-  open() {
-    if (localStorage.lock && unlockModal.isLocked()) {
-      unlockModal.openButtonElementUsed = welcomeScreen.openWelcomeMenuButton;
-      unlockModal.open();
-    } else {
-      openModal(this.modal);
-      enterFullscreen();
-    }
-  }
-
-  close() {
-    this.modal.classList.remove('active');
-    enterFullscreen();
-  }
-
-  isActive() {
-    return this.modal.classList.contains('active');
-  }
+  open() { openModal(this.modal); enterFullscreen(); }
+  close() { this.modal.classList.remove('active'); enterFullscreen(); }
+  isActive() { return this.modal.classList.contains('active'); }
 }
 
 const welcomeMenuModal = new WelcomeMenuModal();
@@ -1681,8 +1650,6 @@ class Footer {
     this.newChatButton = document.getElementById('newChatButton');
     this.lastItem = this.footer.querySelector('.last-item');
 
-    this.newChatButton.addEventListener('click', () => newChatModal.openNewChatModal());
-    this.chatButton.addEventListener('click', () => this.switchView('chats'));
     this.contactsButton.addEventListener('click', () => this.switchView('contacts'));
     this.walletButton.addEventListener('click', () => this.switchView('wallet'));
     document.querySelectorAll('[data-win-view]').forEach(button => button.addEventListener('click', () => this.switchView(button.dataset.winView)));
@@ -1697,7 +1664,8 @@ class Footer {
   }
 
   openNewChatButton() {
-    this.newChatButton.classList.add('visible');
+    // Retained for legacy call sites; WIN has no chat entry point.
+    this.newChatButton.classList.remove('visible');
   }
 
   closeNewChatButton() {
@@ -1705,8 +1673,9 @@ class Footer {
   }
 
   async switchView(view) {
+    view = walletView(view);
     // Store the current view for potential rollback
-    const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'chats';
+    const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'profiles';
     const previousButton = document.querySelector('.nav-button.active');
   
     try {
@@ -1866,6 +1835,7 @@ class ChatsScreen {
  * @returns {Promise<number>} The number of chats fetched
  */
   async updateChatData() {
+    if (!MESSAGING_ENABLED) return 0;
     let gotChats = 0;
     if (myAccount && myAccount.keys) {
       try {
@@ -2417,12 +2387,13 @@ class WalletScreen {
     }
 
     const externalRefreshes = Promise.allSettled([
-      multichain.updateSummary({ refresh: true }),
-      evmAssets.refresh().then(() => evmAssets.getStatus() === 'connected'),
+      EXTERNAL_ASSETS_ENABLED ? multichain.updateSummary({ refresh: true }) : Promise.resolve(true),
+      EXTERNAL_ASSETS_ENABLED ? evmAssets.refresh().then(() => evmAssets.getStatus() === 'connected') : Promise.resolve(true),
     ]);
     let nativeUpdated = false;
     try {
       nativeUpdated = await this.updateWalletBalances();
+      if (!MESSAGING_ENABLED && this.isCurrentWallet(account, walletData)) await getChats(account.keys);
       if (!this.isCurrentWallet(account, walletData) || refreshId !== this.walletViewRefreshId) return;
 
       const walletUsdValue = calculateWalletUsdValue(walletData.assets);
@@ -8110,7 +8081,7 @@ class SettingsModal {
     this.tollButton.addEventListener('click', () => tollModal.open());
     
     this.lockButton = document.getElementById('openLockModal');
-    this.lockButton.addEventListener('click', () => lockModal.open());
+    // Manual lock controls are retired.
     
     this.backupButton = document.getElementById('openBackupForm');
     this.backupButton.addEventListener('click', () => backupModal.open());
@@ -9460,9 +9431,7 @@ class SignInModal {
     }
     
     // Initialize upcoming calls icon and start periodic refresh
-    callsModal.refreshCalls();
-    header.updateCallsIcon();
-    callsModal.startPeriodicCallsRefresh();
+    // Messaging and scheduled calls are retired; wallet history sync is independent.
   }
 
   /**
@@ -10949,7 +10918,7 @@ class HistoryModal {
       }
       
       this.close();
-      chatModal.open(address);
+      contactInfoModal.open(createDisplayInfo(myData.contacts[address]));
     }
   }
 
@@ -11330,6 +11299,7 @@ class CallsModal {
    * Starts the periodic refresh interval (every minute)
    */
   startPeriodicCallsRefresh() {
+    if (!MESSAGING_ENABLED) return;
     if (this._periodicRefreshInterval) return;
     this._periodicRefreshInterval = setInterval(() => {
       this.refreshCalls();
@@ -12629,7 +12599,7 @@ async function recheckEvmPayment(payment) {
 // The existing five-second app heartbeat schedules this queue independently of
 // Liberdus pending. No chat modal owns a timer or a verification request.
 async function checkEvmPayments() {
-  if (!myAccount || !isOnline || document.visibilityState === 'hidden' || evmAssets.sending) return;
+  if (!EXTERNAL_ASSETS_ENABLED || !myAccount || !isOnline || document.visibilityState === 'hidden' || evmAssets.sending) return;
   if (evmPaymentCheckSession?.account !== myAccount) {
     stopEvmPaymentChecks();
     evmPaymentCheckSession = { account: myAccount, running: false };
@@ -13052,11 +13022,12 @@ async function processChats(chats, keys) {
     }
 
     // Fetch messages using the adjusted timestamp
-    const res = await queryNetwork(`/messages/${expectedChatId}/${messageQueryTimestamp}`);
+    const res = await queryNetwork(`/${MESSAGING_ENABLED ? "messages" : "payments"}/${expectedChatId}/${messageQueryTimestamp}`);
     if (res && res.messages) {
       const contactKeys = await getVerifiedChatContactKeys(from);
       const verifiedMessages = [];
       for (const [order, tx] of Object.entries(res.messages)) {
+        if (!MESSAGING_ENABLED && tx.type !== "transfer") continue;
         let transactionFrom = '';
         try {
           transactionFrom = normalizeAddress(tx?.from);
@@ -14104,8 +14075,8 @@ The main difference between a chat message and an asset transfer is
 `;
 
 let paymentSubmissionInFlight = false;
-function getPaymentFeeWei() {
-  return BigInt(network.payment.transferFee);
+function getPaymentFeeWei(amount = 0n) {
+  return WinPayments.operationFee(amount);
 }
 
 async function postAssetTransfer(to, amount, memo, keys, assetIndex) {
@@ -14118,7 +14089,7 @@ async function postAssetTransfer(to, amount, memo, keys, assetIndex) {
   if (WinPayments.isProtectedAddress(fromAddr) || WinPayments.isProtectedAddress(toAddr)) {
     throw new Error('Payments cannot use protected registry addresses.');
   }
-  if (paymentSubmissionInFlight || (dataRecord.pending || []).some((tx) => tx.type === 'transfer')) {
+  if (paymentSubmissionInFlight || (dataRecord.bridgeOperations || []).some(op => op.status !== 'complete' && op.nativeTx && !op.nativeConfirmed) || (dataRecord.pending || []).some((tx) => tx.type === 'transfer')) {
     throw new Error('Wait for the previous payment receipt before sending another payment.');
   }
   paymentSubmissionInFlight = true;
@@ -14130,7 +14101,7 @@ async function postAssetTransfer(to, amount, memo, keys, assetIndex) {
     if (myAccount !== account || myData !== dataRecord) throw new Error('Account changed before payment submission.');
     const protocol = protocolResult?.protocol;
     if (protocol?.networkId !== network.netid || protocol?.currency !== 'WIN' || protocol?.transferNonceRequired !== true
-      || protocol.transferFee !== network.payment.transferFee) throw new Error('WIN payment protocol mismatch. Refresh the application.');
+      || protocol.transferFeeBps !== network.payment.transferFeeBps || protocol.feeRecipient !== network.payment.feeRecipient) throw new Error('WIN payment protocol mismatch. Refresh the application.');
     const wallet = walletResult?.account;
     if (wallet?.id !== fromAddr || wallet?.type !== 'UserAccount') throw new Error('Sender wallet is unavailable.');
     const lastNonce = wallet.data.transferNonce ?? 0;
@@ -14140,7 +14111,7 @@ async function postAssetTransfer(to, amount, memo, keys, assetIndex) {
       nonce: lastNonce + 1,
       chatId: hashBytes([fromAddr, toAddr].sort().join('')),
       xmemo: memo, timestamp: getTransactionTimestamp(),
-      fee: getPaymentFeeWei(), networkId: network.netid,
+      fee: getPaymentFeeWei(amount), networkId: network.netid,
     };
     const txid = await signObj(tx, keys);
     if (myAccount !== account || myData !== dataRecord) throw new Error('Account changed before payment submission.');
@@ -14366,6 +14337,7 @@ async function refreshNetworkParamsOnTxFeeMismatch(reason) {
  * @returns {Promise<Object>} The response from the injectTx call
  */
 async function injectTx(tx, txid, expectedAccount = null) {
+  assertWalletTransaction(tx?.type);
   if (expectedAccount && myAccount !== expectedAccount) throw new Error('Account changed before submission.');
   if (!isOnline) {
     return null;
@@ -17593,9 +17565,9 @@ class BackupAccountModal {
     
     // Generate filename based on whether username is provided
     if (username) {
-      return `liberdus-${username}-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
+      return `win-${username}-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
     } else {
-      return `liberdus-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
+      return `win-${dateStr}-${timeStr}-${networkIdPrefix}.json`;
     }
   }
 
@@ -18046,7 +18018,6 @@ class RestoreAccountModal {
   }
 
   open() {
-    if (!ensureWalletProtection(() => this.open())) return;
     // reset any backup lock UI
     this.resetBackupLockPrompt();
 
@@ -18098,7 +18069,7 @@ class RestoreAccountModal {
     if (isGoogleDrive) {
       // Google Drive: require file selection and password
       const hasFile = this.selectedGoogleDriveFile !== null;
-      const hasPassword = this.passwordInput.value.trim().length > 0;
+      const hasPassword = this.passwordInput.value.length > 0;
       isValid = hasFile && hasPassword;
     } else {
       // Local: require file selection, password optional
@@ -18293,7 +18264,7 @@ class RestoreAccountModal {
       const m = /\S/.exec(content);
       const firstNonWs = m ? m[0] : '';
       if (firstNonWs !== '{') {
-        const password = this.passwordInput.value.trim();
+        const password = this.passwordInput.value;
         if (!password) {
           this.resetBackupLockPrompt();
           return;
@@ -18500,6 +18471,7 @@ class RestoreAccountModal {
   async handleSubmit(event) {
     event.preventDefault();
 
+    if (!ensureWalletProtection(() => this.handleSubmit({ preventDefault() {} }))) return;
     const isGoogleDrive = this.sourceLocationSelect.value === 'google-drive';
 
     try {
@@ -18522,31 +18494,7 @@ class RestoreAccountModal {
         fileContent = await file.text();
       }
       
-      // Manual scan using regex: find first non-whitespace char
-      const m = /\S/.exec(fileContent);
-      const firstNonWs = m ? m[0] : '';
-      const isNotEncryptedData = firstNonWs === '{';
-
-      // Check if data is encrypted and decrypt if necessary
-      if (!isNotEncryptedData) {
-        if (!this.passwordInput.value.trim()) {
-          showToast('Password required for encrypted data', 0, 'error');
-          return;
-        }
-        fileContent = decryptData(fileContent, this.passwordInput.value.trim());
-        if (fileContent == null) {
-          throw '';
-        }
-      }
-
-      // Apply string substitution if developer options are enabled
-      const substitution = this.getStringSubstitution();
-      if (substitution) {
-        fileContent = this.performStringSubstitution(fileContent, substitution);
-      }
-
-      // We first parse to jsonData so that if the parse does not work we don't destroy myData
-      let backupData = parse(fileContent);
+      let backupData = decodeBackup(fileContent, this.passwordInput.value, decryptData, parse);
 
       // Instead of clearing localStorage, we'll merge accounts from backup into localStorage
       // Ask for confirmation (previous behavior warned about clearing; keep a similar warning)
@@ -18569,7 +18517,11 @@ class RestoreAccountModal {
       // Merge and abort if merge failed
       const restoredCount = await this.mergeBackupAccountsToLocal(backupData);
       if (restoredCount === false) {
-        return; // merge failed — keep modal open and do not proceed to reset/close
+        return; // Preserve the selected file and passwords for retry.
+      }
+      if (restoredCount === 0) {
+        showToast('No accounts restored. Check the backup account password, file contents, and whether these accounts already exist. Your current accounts were preserved.', 0, 'error');
+        return;
       }
       clearMyData(); // Prevent stale signed-in state from saving over restored localStorage before refresh.
       let successToastId;
@@ -18659,15 +18611,7 @@ class RestoreAccountModal {
   }
 
   parseBackupAccountKey(key) {
-    const parts = key.split('_');
-    if (parts.length !== 2) return null;
-
-    const [username, netid] = parts;
-    if (!username || netid.length !== 64 || !/^[a-f0-9]+$/.test(netid)) {
-      return null;
-    }
-
-    return { username, netid };
+    return backupAccountKey(key);
   }
 
   getBackupAccountEntries(backupData, backupAccountsRegistry) {
@@ -20450,7 +20394,7 @@ class StakeValidatorModal {
     const txFeeInLIB = getTransactionFeeWei();
     
     const balanceInLIB = big2str(BigInt(libAsset.balance), 18).slice(0, -12);
-    const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
+    const feeInLIB = WinPayments.formatAtomic(txFeeInLIB);
 
     this.balanceAmount.textContent = balanceInLIB + ' WIN';
     this.transactionFee.textContent = feeInLIB + ' WIN';
@@ -21878,6 +21822,7 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address, skipAutoScroll = false) {
+    if (!MESSAGING_ENABLED) return;
     this.closeReactionSheet();
 
     // Set active chat address early so async refreshes target the correct chat.
@@ -22410,6 +22355,7 @@ class ChatModal {
    * @returns {void}
    */
   async handleSendMessage() {
+    if (!MESSAGING_ENABLED) return;
     // Check if user is offline - prevent sending messages when offline
     if (!isOnline) {
       showToast('You are offline. Please check your internet connection.', 3000, 'error');
@@ -32540,6 +32486,7 @@ class NewChatModal {
    * @returns {void}
    */
   openNewChatModal() {
+    if (!MESSAGING_ENABLED) return;
     openModal(this.modal);
     footer.closeNewChatButton();
     this.usernameAvailable.style.display = 'none';
@@ -32878,7 +32825,7 @@ class CreateAccountModal {
       showToast(message, 0, 'info', true);
     });
 
-    this.migrateAccountsButton.addEventListener('click', () => migrateAccountsModal.open());
+    // Cross-network account migration is retired.
   }
 
   open() {
@@ -33770,7 +33717,7 @@ class SendAssetFormModal {
 
     const warning = document.createElement('span');
     const assetIndex = myData.wallet.assets.indexOf(asset);
-    const hasBalance = await validateBalance(amountWei, assetIndex, warning, getPaymentFeeWei());
+    const hasBalance = await validateBalance(amountWei, assetIndex, warning, getPaymentFeeWei(amountWei));
     if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
       || this.amountInput.value.trim() !== amountText || this.balanceSymbol.textContent !== amountUnit
       || this.usernameInput.value.trim() !== username || this.memoInput.value.trim() !== memo) return;
@@ -33789,7 +33736,7 @@ class SendAssetFormModal {
       : '';
     sendAssetConfirmModal.confirmAmountUSD.textContent = usdText ? `≈ ${usdText} USD` : '';
     sendAssetConfirmModal.confirmRecipient.textContent = username;
-    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} WIN`;
+    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} WIN + ${WinPayments.formatAtomic(getPaymentFeeWei(amountWei))} WIN fee (0.5%)`;
     sendAssetConfirmModal.confirmAsset.textContent = asset.name === asset.symbol
       ? asset.symbol : `${asset.name} (${asset.symbol})`;
 
@@ -33817,8 +33764,7 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     if (!this.isCurrentSession(session)) return;
-    const feeInWei = getPaymentFeeWei();
-    const maxAmount = BigInt(asset.balance) - feeInWei;
+    const maxAmount = WinPayments.maxTransfer(BigInt(asset.balance));
     const maxAmountStr = WinPayments.formatAtomic(maxAmount > 0n ? maxAmount : 0n);
 
     // Check if we're in USD mode
@@ -33866,7 +33812,7 @@ class SendAssetFormModal {
 
     await getNetworkParams();
     if (!this.isCurrentSession(session)) return;
-    const txFeeInLIB = getPaymentFeeWei();
+    const txFeeInLIB = getPaymentFeeWei(this.getAmountWei?.() ?? this.payment?.amountWei ?? 0n);
     const stabilityFactor = getStabilityFactor();
 
     // Preserve the current toggle state (WIN/USD) instead of overwriting it
@@ -33879,7 +33825,7 @@ class SendAssetFormModal {
     }
 
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
-    const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
+    const feeInLIB = WinPayments.formatAtomic(txFeeInLIB);
 
     this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isCurrentlyUSD, stabilityFactor);
   }
@@ -33957,9 +33903,10 @@ class SendAssetFormModal {
     // returns false if the amount/balance is invalid.
     // Validate into a detached element so an old request cannot change a newer form.
     const warning = document.createElement('span');
-    const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, warning, getPaymentFeeWei());
+    const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, warning, getPaymentFeeWei(amountBigInt));
     if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
       || this.amountInput.value.trim() !== amount || this.balanceSymbol.textContent !== unit) return;
+    this.transactionFee.textContent = `${WinPayments.formatAtomic(getPaymentFeeWei(amountBigInt))} WIN (0.5%)`;
     this.balanceWarning.textContent = warning.textContent;
     this.balanceWarning.style.display = warning.style.display;
 
@@ -34027,9 +33974,9 @@ class SendAssetFormModal {
     // Get the raw values in WIN format
     const asset = walletScreen.getLibAsset();
     if (!asset) return;
-    const txFeeInWei = getPaymentFeeWei();
+    const txFeeInWei = getPaymentFeeWei(this.getAmountWei() ?? 0n);
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
-    const feeInLIB = big2str(txFeeInWei, 18).slice(0, -16);
+    const feeInLIB = WinPayments.formatAtomic(txFeeInWei);
 
     // if isLib is false, convert the sendAmount to USD
     if (!isLib) {
@@ -34298,12 +34245,12 @@ class SendAssetConfirmModal {
     let toAddress;
 
     // Validate amount including transaction fee
-    const hasBalance = await validateBalance(amount, assetIndex, null, getPaymentFeeWei());
+    const hasBalance = await validateBalance(amount, assetIndex, null, getPaymentFeeWei(amount));
     if (this.payment !== payment) return;
     if (!hasBalance) {
       await getNetworkParams();
       if (this.payment !== payment) return;
-      const txFeeInLIB = getPaymentFeeWei();
+      const txFeeInLIB = getPaymentFeeWei(this.getAmountWei?.() ?? this.payment?.amountWei ?? 0n);
       const balance = BigInt(wallet.assets[assetIndex].balance);
       const amountStr = big2str(amount, 18).slice(0, -16);
       const feeStr = big2str(txFeeInLIB, 18).slice(0, -16);
@@ -35780,7 +35727,6 @@ class LockModal {
     this.removeButton = document.getElementById('removeLockButton');
     this.formBox = document.getElementById('lockFormContainer');
 
-    this.openButton.addEventListener('click', () => this.open());
     this.headerCloseButton.addEventListener('click', () => this.close());
     this.lockForm.addEventListener('submit', withButtonCooldown(
       [this.lockButton, this.headerCloseButton],
@@ -37614,6 +37560,7 @@ function stopLongPoll() {
 }
 
 function longPoll() {
+  if (!MESSAGING_ENABLED) return;
   if (!useLongPolling) {
     return;
   }
@@ -37669,6 +37616,7 @@ function longPoll() {
 longPoll.start = 0;
 
 async function longPollResult(data) {  
+  if (!MESSAGING_ENABLED) return;
   // Reset polling state and clean up abort controller
   isLongPolling = false;
   longPollAbortController = null;
@@ -39826,5 +39774,83 @@ const winWorkspace = createWinWorkspace({
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
     return { txId, status: 'pending' };
+  },
+});
+
+
+const bridgeSession = () => myAccount?.keys ? { address: longAddress(myAccount.keys.address), evmAddress: '0x'+normalizeAddress(myAccount.keys.address), networkId: network.netid } : null;
+function saveBridgeOperation(op) {
+  if (bridgeSession()?.address !== op.address || network.netid !== op.networkId) throw new Error('Bridge wallet changed');
+  myData.bridgeOperations ??= [];
+  const index = myData.bridgeOperations.findIndex(o => o.localId === op.localId);
+  const copy = parse(stringify(op));
+  if (index < 0) myData.bridgeOperations.push(copy); else myData.bridgeOperations[index] = copy;
+  saveState();
+}
+const bridgeUI = createBridgeUI({
+  session: bridgeSession,
+  rpc: bnbRpc,
+  read: path => queryNetwork(path, AbortSignal.timeout(15000)),
+  operations: () => (myData?.bridgeOperations || []).filter(o => o.networkId === network.netid),
+  save: saveBridgeOperation,
+  async rebroadcast(op) {
+    for (const tx of Object.values(op.bnbTransactions || {})) {
+      if (await bnbRpc('eth_getTransactionReceipt', [tx.hash])) continue;
+      try { await bnbRpc('eth_sendRawTransaction', [tx.raw]); }
+      catch (error) { if (!/already known|known transaction|nonce too low/i.test(error.message)) throw error; }
+    }
+  },
+  async sendBnb(op, step, to, data) {
+    const account = myAccount;
+    const check = () => { if (account !== myAccount || bridgeSession()?.address !== op.address) throw new Error('Signing wallet changed'); };
+    check();
+    const existing = op.bnbTransactions?.[step];
+    if (existing) { await bnbRpc('eth_sendRawTransaction', [existing.raw]); return; }
+    if (BigInt(await bnbRpc('eth_chainId')) !== 56n) throw new Error('BNB mainnet required');
+    const from = op.evmAddress;
+    const [nonce, estimate, price, balance] = await Promise.all([
+      bnbRpc('eth_getTransactionCount', [from, 'pending']),
+      bnbRpc('eth_estimateGas', [{ from, to, data, value: '0x0' }]),
+      bnbRpc('eth_gasPrice'), bnbRpc('eth_getBalance', [from, 'pending']),
+    ]);
+    check();
+    const gasLimit = BigInt(estimate) * 12n / 10n + 1n, gasPrice = BigInt(price), cost = gasLimit * gasPrice;
+    if (BigInt(balance) < cost) throw new Error('Add BNB to this wallet for network gas. WIN cannot pay BNB gas.');
+    if (!window.confirm(`Confirm ${step} on BNB Chain. Maximum network gas: ${WinPayments.formatAtomic(cost)} BNB. Transaction destination: ${to}`)) throw new Error('BNB transaction canceled. Continue when ready.');
+    check();
+    const raw = await signEvmTransaction({ chainId:56, feeMode:'legacy', nonce, gasLimit:'0x'+gasLimit.toString(16), gasPrice:price, to, value:'0x0', data }, account.keys.secret);
+    check();
+    const hash = hashHex(raw);
+    op.bnbTransactions ??= {}; op.bnbTransactions[step] = { raw, hash };
+    op[step+'Hash'] = hash;
+    saveBridgeOperation(op); // Save before broadcasting; retry always sends the identical signed transaction.
+    const submitted = await bnbRpc('eth_sendRawTransaction', [raw]);
+    if (submitted !== hash) throw new Error('BNB RPC returned an unexpected hash; saved transaction remains pending.');
+  },
+  async sendNative(op, fields) {
+    const account = myAccount;
+    const check = () => { if (account !== myAccount || bridgeSession()?.address !== op.address) throw new Error('Signing wallet changed'); };
+    check();
+    validateBridgeConfig(await queryNetwork('/bridge/v2/status'), network.netid); check();
+    if (!op.nativeTx) {
+      if ((myData.pending || []).some(t => t.type === 'transfer')) throw new Error('Wait for the pending native payment before continuing.');
+      const wallet = (await queryNetwork('/account/'+op.address))?.account; check();
+      if (wallet && (wallet.type !== 'UserAccount' || wallet.id !== op.address)) throw new Error('Invalid native wallet');
+      const nonce = (wallet?.data?.transferNonce ?? 0) + 1;
+      if (!Number.isSafeInteger(nonce) || nonce < 1) throw new Error('Invalid native payment nonce');
+      const tx = { ...fields, from:op.address, networkId:op.networkId, timestamp:getCorrectedTimestamp(), nonce };
+      const txId = await signObj(tx, account.keys); check();
+      op.nativeTx = { tx, txId }; saveBridgeOperation(op);
+    }
+    const { tx, txId } = op.nativeTx;
+    const receipt = (await queryNetwork('/transaction/'+txId))?.transaction; check();
+    if (receipt?.txId === txId && receipt.networkId === op.networkId && receipt.type === fields.type) {
+      if (receipt.success === true) { op.nativeConfirmed=true; saveBridgeOperation(op); return; }
+      if (receipt.success === false) { delete op.nativeTx; saveBridgeOperation(op); throw new Error('Native transaction rejected: '+(receipt.reason || 'Review and retry.')); }
+    }
+    const result = await injectTx(tx, txId, account); check();
+    if (result?.result?.success === false && !result.transportFailure) {
+      delete op.nativeTx; saveBridgeOperation(op); throw new Error(result.result.reason || 'Native transaction rejected. Continue to retry.');
+    }
   },
 });
