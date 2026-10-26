@@ -1,4 +1,5 @@
-// WIN application network. Replace the legacy public HTTP/WS endpoints with HTTPS/WSS before deployment.
+// WIN application network. Caddy forwards these public HTTPS/WSS routes to the local proxy.
+// Install deployment/wallet-gateway.caddy in the wallet site's Caddy block before deploying this config.
 // Local development may use HTTP/WS only when both the app and gateway are on loopback.
 // Keep netid/netids aligned with the selected gateway; do not mix development and public networks.
 const network = {
@@ -9,8 +10,8 @@ const network = {
   ],
   "gateways": [
     {
-      "web": "https://162.35.97.118:3030",
-      "ws": "wss://162.35.97.118:3031"
+      "web": "https://wallet.win-pskill.com/api",
+      "ws": "wss://wallet.win-pskill.com/ws"
     }
   ],
   "payment": {

@@ -8,7 +8,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'y'; // Also increment this when you increment version.html
+const version = 'z'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -8952,7 +8952,7 @@ class SignInModal {
     this.actionSheetOverlay.setAttribute('aria-hidden', 'false');
 
     if (reason === 'network-error') {
-      showToast('The gateway server is down, please try again later.', 5000, 'warning');
+      showToast('Unable to reach the WIN gateway. Check your connection or try again later.', 5000, 'warning');
     }
   }
 

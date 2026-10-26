@@ -1,0 +1,12 @@
+# Import INSIDE the existing wallet.win-pskill.com site block.
+# Keep the current website handler as the fallback for other paths.
+# Caddy and win-proxy must share a host/network namespace for these loopback addresses.
+handle_path /api/* {
+	reverse_proxy 127.0.0.1:3030
+}
+
+@win_gateway_ws path /ws /ws/*
+handle @win_gateway_ws {
+	uri strip_prefix /ws
+	reverse_proxy 127.0.0.1:3031
+}
