@@ -1419,6 +1419,7 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="importForm" class="form--narrow">
+              <p>Select an existing WIN or Liberdus backup file. Your current accounts will be kept unless you choose to overwrite them.</p>
               <div class="form-group" hidden inert data-win-retired="account-controls">
                 <label hidden for="restoreSourceLocation">Source Location</label>
                 <select hidden id="restoreSourceLocation" class="form-control">
@@ -1447,7 +1448,7 @@
                   type="password"
                   id="importPassword"
                   class="form-control"
-                  placeholder="Enter password for encrypted files"
+                  placeholder="Password used when exporting this file (if any)"
                 />
               </div>
               <div class="form-group">
@@ -1458,16 +1459,16 @@
               </div>
 
               <div class="form-group" id="backupAccountLockGroup" style="display: none;">
-                <label for="backupAccountLock">Backup Account Password</label>
+                <label for="backupAccountLock">Original Wallet Password</label>
                 <input
                   type="password"
                   id="backupAccountLock"
                   class="form-control"
-                  placeholder="Enter password used to lock accounts in backup"
+                  placeholder="Wallet password from the device that created this backup"
                 />
               </div>
               <div class="form-actions">
-                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Load Account</button>
+                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Restore Account</button>
               </div>
               <div class="form-group" hidden inert data-win-retired="account-controls">
                 <label>
@@ -1496,6 +1497,12 @@
                 </div>
               </div>
             </form>
+            <div id="restoreResult" hidden class="form--narrow" role="status" aria-live="polite">
+              <h2>Account restored</h2>
+              <p id="restoreResultMessage"></p>
+              <p id="restoreNetworkNote" hidden></p>
+              <button type="button" id="continueAfterRestore" class="btn btn--primary btn--pill btn--full">Continue to sign in</button>
+            </div>
           </div>
         </div>
         <a class="last-item" href="#"> </a>

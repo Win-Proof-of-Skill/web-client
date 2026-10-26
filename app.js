@@ -8,7 +8,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'z'; // Also increment this when you increment version.html
+const version = 'aa'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -17948,6 +17948,11 @@ class RestoreAccountModal {
     this.backupAccountLock = document.getElementById('backupAccountLock');
     this.developerOptionsSection = document.getElementById('developerOptionsSection');
     this.submitButton = document.getElementById('restoreSubmitButton');
+    this.resultPanel = document.getElementById('restoreResult');
+    this.resultMessage = document.getElementById('restoreResultMessage');
+    this.resultNetworkNote = document.getElementById('restoreNetworkNote');
+    this.continueButton = document.getElementById('continueAfterRestore');
+    this.continueButton.addEventListener('click', () => this.finishRestore());
 
     // Google Drive elements
     this.sourceLocationSelect = document.getElementById('restoreSourceLocation');
@@ -18028,6 +18033,10 @@ class RestoreAccountModal {
 
   close() {
     // called when the modal needs to be closed
+    if (this.restoreCompleted) {
+      this.finishRestore();
+      return;
+    }
     this.modal.classList.remove('active');
     this.clearForm();
   }
@@ -18412,6 +18421,7 @@ class RestoreAccountModal {
 
     // Iterate over account payloads and copy account entries.
     const restoredAccountKeys = new Set();
+    this.restoredNetids = new Set();
     const backupAccountsRegistry = this.parseBackupAccountsRegistry(backupData);
     const backupAccountEntries = this.getBackupAccountEntries(backupData, backupAccountsRegistry);
     for (const { key, username, netid, registryAccount } of backupAccountEntries) {
@@ -18435,6 +18445,7 @@ class RestoreAccountModal {
         const finalValue = protectAccount(decryptedAccount, localStorage.lock, lockModal.encKey, encryptData);
         localStorage.setItem(localKey, finalValue);
         restoredAccountKeys.add(localKey);
+        this.restoredNetids.add(netid);
       } catch (error) {
         showToast(`Unable to unlock or protect account ${username} on ${netid}. Skipping.`, 0, 'error');
         continue;
@@ -18466,6 +18477,25 @@ class RestoreAccountModal {
     }
 
     return restoredAccountKeys.size;
+  }
+
+  showRestoreResult(count) {
+    const otherNetworks = [...(this.restoredNetids || [])].filter(netid => netid !== network.netid);
+    const hasCurrentNetwork = this.restoredNetids?.has(network.netid);
+    this.clearForm();
+    this.restoreCompleted = true;
+    this.importForm.hidden = true;
+    this.resultPanel.hidden = false;
+    this.resultMessage.textContent = `${count} account${count === 1 ? '' : 's'} restored from your backup.`;
+    this.resultNetworkNote.hidden = otherNetworks.length === 0;
+    this.resultNetworkNote.textContent = otherNetworks.length
+      ? `${hasCurrentNetwork ? 'Some restored accounts belong' : 'This backup belongs'} to a different network. Those accounts are saved on this device but will not appear in the current WIN network's sign-in list. Their original network IDs were preserved.`
+      : '';
+    this.continueButton.focus();
+  }
+
+  finishRestore() {
+    if (this.restoreCompleted) window.location.reload();
   }
 
   async handleSubmit(event) {
@@ -18524,36 +18554,18 @@ class RestoreAccountModal {
         return;
       }
       clearMyData(); // Prevent stale signed-in state from saving over restored localStorage before refresh.
-      let successToastId;
-      const refreshAfterRestoreToast = () => {
-        document.removeEventListener('click', handleRestoreOutsideClick, true);
-        this.close();
-        window.location.reload(); // need to go through Sign In to make sure imported account exists on network
-      };
-      function handleRestoreOutsideClick(event) {
-        const successToast = document.getElementById(successToastId);
-        if (successToast?.contains(event.target)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        hideToast(successToastId);
-      }
-      successToastId = showToast(
-        `${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`,
-        0,
-        'success',
-        false,
-        { onHidden: refreshAfterRestoreToast }
-      );
-      setTimeout(() => document.addEventListener('click', handleRestoreOutsideClick, true), 0);
-
-      // handleNativeAppSubscription()
+      this.showRestoreResult(restoredCount);
     } catch (error) {
       showToast(error.message || 'Import failed. Please check file and password.', 0, 'error');
     }
   }
 
   clearForm() {
+    this.restoreCompleted = false;
+    this.importForm.hidden = false;
+    this.resultPanel.hidden = true;
+    this.resultMessage.textContent = '';
+    this.resultNetworkNote.textContent = '';
     this.fileInput.value = '';
     this.passwordInput.value = '';
     this.developerOptionsToggle.checked = false;

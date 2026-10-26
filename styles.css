@@ -1541,6 +1541,12 @@ button:disabled {
   transform: translateX(-100%);
 }
 
+/* Password prompts can open from Restore, which appears later in the DOM. */
+#lockModal,
+#unlockModal {
+  z-index: var(--overlay-z-index-base);
+}
+
 /* ========== Modal Header Consolidation ========== */
 
 /* Base modal header styles */
