@@ -1,3 +1,4 @@
+import { assertWinResponse } from './win-security.mjs';
 import {
   WIN_TOKEN,
   controls,
@@ -78,7 +79,7 @@ export function createWinWorkspace(api) {
           ? value.error
           : 'The WIN network is unavailable. Check your connection and gateway, then retry.'
       );
-    return value;
+    return assertWinResponse(path, value);
   }
   async function all(kind, query = '') {
     const records = [];
@@ -299,7 +300,7 @@ export function createWinWorkspace(api) {
           )
           .join('') || '<p>No endorsements yet.</p>'
       }<h3>Public identity</h3><p class="win-address">${escape(p.id)}</p><p class="win-help">Revision ${
-        p.revision
+        escape(p.revision)
       } · Updated ${date(p.updatedAt)}</p>`
     );
   }
@@ -354,7 +355,7 @@ export function createWinWorkspace(api) {
           skills
             .map(
               (s) =>
-                `<label><input type="checkbox" name="skills" value="${s.id}" ${
+                `<label><input type="checkbox" name="skills" value="${escape(s.id)}" ${
                   selected.has(s.id) ? 'checked' : ''
                 }>${escape(s.name)}</label>`
             )
@@ -423,7 +424,7 @@ export function createWinWorkspace(api) {
               )}<small>${date(c.updatedAt)}</small></div><h3>${escape(c.title)}</h3><p>${escape(
                 c.publicDescription || 'Work agreement'
               )}</p><div class="win-tags"><span>${escape(c.workStatus)}</span><span>${
-                c.terms.durationMonths
+                escape(c.terms.durationMonths)
               } months</span><span>${c.approvals.length}/${
                 c.hiringProfileIds.length
               } approvals</span></div><div class="win-card-bottom"><small>${
@@ -523,7 +524,7 @@ export function createWinWorkspace(api) {
         )}</div><p class="win-help">Compensation records agreed terms. This signature does not send salary or create escrow.</p><fieldset><legend>Skills used</legend><div class="win-skill-picker">${skills
           .map(
             (s) =>
-              `<label><input name="skills" type="checkbox" value="${s.id}" ${
+              `<label><input name="skills" type="checkbox" value="${escape(s.id)}" ${
                 c.skillIds.includes(s.id) ? 'checked' : ''
               }>${escape(s.name)}</label>`
           )
@@ -606,7 +607,7 @@ export function createWinWorkspace(api) {
         .map(escape)
         .join('<br>')}</dd><dt>Work period</dt><dd>${escape(c.terms.startDate)} → ${escape(
         c.terms.endDate || 'Ongoing'
-      )} · ${c.terms.durationMonths} months</dd><dt>Work status</dt><dd>${escape(
+      )} · ${escape(c.terms.durationMonths)} months</dd><dt>Work status</dt><dd>${escape(
         c.workStatus
       )}</dd><dt>Responsibilities</dt><dd class="win-prose">${escape(
         c.terms.responsibilities.join('\n') || 'None listed'
@@ -624,7 +625,7 @@ export function createWinWorkspace(api) {
         c.hiringProfileIds.length
       }</dd></dl><details><summary>Complete signed terms & evidence</summary><pre>${escape(
         JSON.stringify(contractContent(c), null, 2)
-      )}</pre></details><p class="win-help">Revision ${c.revision} · Terms revision ${c.termsRevision}${
+      )}</pre></details><p class="win-help">Revision ${escape(c.revision)} · Terms revision ${escape(c.termsRevision)}${
         c.approvalRequest ? ' · Approval deadline ' + date(c.approvalRequest.expiresAt) : ''
       }</p>${
         c.rejection ? `<p class="win-message">Rejected: ${escape(c.rejection.reason)}</p>` : ''
@@ -958,7 +959,7 @@ export function createWinWorkspace(api) {
             .filter((p) => !controls(p, session().address))
             .map(
               (p) =>
-                `<button type="button" class="win-pick-profile" data-pick-profile="${p.id}">${escape(
+                `<button type="button" class="win-pick-profile" data-pick-profile="${escape(p.id)}">${escape(
                   p.displayName
                 )} <small>${escape(p.details?.headline || p.type)}</small></button>`
             )

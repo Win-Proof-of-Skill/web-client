@@ -1,4 +1,6 @@
-// WIN application network. Gateway ports follow the existing gateway deployment.
+// WIN application network. Replace the legacy public HTTP/WS endpoints with HTTPS/WSS before deployment.
+// Local development may use HTTP/WS only when both the app and gateway are on loopback.
+// Keep netid/netids aligned with the selected gateway; do not mix development and public networks.
 const network = {
   "name": "WIN",
   "netid": "f4ad1838b012fe4af28cfbcc01c30044e3e225ef6be7e8461343d1de369949d9",

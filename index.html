@@ -7,6 +7,9 @@
     <meta http-equiv="Expires" content="0">
     -->
     <meta charset="UTF-8" />
+    <!-- Defense in depth: untrusted data must still be escaped at every renderer. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self'; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:* http://[::1]:* ws://localhost:* ws://127.0.0.1:* ws://[::1]:*; media-src 'self' https: blob:; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'" />
+    <meta name="referrer" content="no-referrer" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content"
@@ -1041,14 +1044,14 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <p>Setting a password will lock all of your accounts when you sign out. You will need to enter the password to unlock.</p>
+            <p>Protect your wallet with a password of at least 12 characters. Your saved accounts will be encrypted on this device.</p>
             <p>If you lose your password, you will not be able to access your accounts.</p>
-            <p>If you are sure you want to lock your app, please enter your password below.</p>
+            <p>Existing accounts are preserved and encrypted before you continue. Keep your password and an account backup somewhere safe.</p>
           </div>
           <div id="lockOptions" class="form-container" style="display:none;">
             <div class="form-actions">
               <button id="changePasswordButton" class="btn btn--primary btn--pill btn--full">Change Password</button>
-              <button id="removeLockButton"  class="btn btn--primary btn--pill btn--full">Remove Lock</button>
+              <button id="removeLockButton" hidden class="btn btn--primary btn--pill btn--full">Remove Lock</button>
             </div>
           </div>
           <div id="lockFormContainer" class="form-container">
@@ -1062,10 +1065,10 @@
                   Password
                   <span id="passwordWarning" style="color: #dc3545; display: none"></span>
                 </label>
-                <input type="password" id="newPassword" class="form-control" />
+                <input type="password" id="newPassword" autocomplete="new-password" minlength="12" class="form-control" />
                 <!-- confirm new password input -->
                 <label for="confirmNewPassword" id="confirmNewPasswordLabel">Confirm Password</label>
-                <input type="password" id="confirmNewPassword" class="form-control" />
+                <input type="password" id="confirmNewPassword" autocomplete="new-password" minlength="12" class="form-control" />
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Save Password</button>

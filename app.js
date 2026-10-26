@@ -1,8 +1,9 @@
+import { highlightText, secureGateway, protectAccount, rekeyAccounts } from './win-security.mjs';
 import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'w'; // Also increment this when you increment version.html
+const version = 'x'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -55,6 +56,7 @@ async function checkVersion() {
       'win-theme.css',
       'win-workspace.mjs',
       'win-domain.mjs',
+      'win-security.mjs',
       'win-bnb.mjs',
       'win-pdf.mjs',
       'external/pdf-lib.esm.min.mjs',
@@ -479,7 +481,8 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
   const usernameBytes = utf82bin(normalizeUsername(username));
   const usernameHash = hashBytes(usernameBytes);
   try {
-    const response = await fetch(`${selectedGateway.web}/address/${usernameHash}`);
+    const response = await fetch(`${selectedGateway.web}/address/${usernameHash}`, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) return 'error';
     const data = await response.json();
     if (data && data.address) {
       if (address && normalizeAddress(data.address) === normalizeAddress(address)) {
@@ -490,7 +493,7 @@ async function checkUsernameAvailability(username, address, foundAddressObject) 
       }
       return 'taken';
     }
-    if (!data) {
+    if (!data || (data.error && data.error !== 'No account exists for the given handle')) {
       return 'error';
     }
     // log username and response to logs modal for debugging
@@ -1127,54 +1130,46 @@ function handleVisibilityChange() {
 }
 
 async function encryptAllAccounts(oldPassword, newPassword) {
-  const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
-  const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
-  // Get all accounts from localStorage
-  const accountsObj = parse(localStorage.getItem('accounts') || 'null');
-  if (!accountsObj?.netids) return;
-
-  for (const netid in accountsObj.netids) {
-    const usernamesObj = accountsObj.netids[netid]?.usernames;
-    if (!usernamesObj) continue;
-    for (const username in usernamesObj) {
-      const key = `${username}_${netid}`;
-      let data = localStorage.getItem(key);
-      if (!data) continue;
-
-      // If oldEncKey is set, decrypt; otherwise, treat as plaintext
-      if (oldEncKey) {
-        try {
-          data = decryptData(data, oldEncKey, true);
-        } catch (e) {
-          console.error(`Failed to decrypt data for ${key}:`, e);
-          continue;
-        }
-      }
-
-      let newData = data;
-
-      // If newEncKey is set, encrypt; otherwise, store as plaintext
-      if (newEncKey) {
-        try {
-          newData = encryptData(newData, newEncKey, true);
-        } catch (e) {
-          console.error(`Failed to encrypt data for ${key}:`, e);
-          continue;
-        }
-      }
-
-      // Save to localStorage (encrypted version uses _ suffix)
-      localStorage.setItem(`${key}`, newData);
-    }
+  if (newPassword.length < 12) throw new Error('Use a wallet password with at least 12 characters.');
+  const oldEncKey = oldPassword ? await passwordToKey(oldPassword + 'liberdusData') : null;
+  const newEncKey = await passwordToKey(newPassword + 'liberdusData');
+  const verifier = await passwordToKey(newPassword);
+  const registry = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+  const names = new Set();
+  for (const [netid, group] of Object.entries(registry.netids || {})) {
+    for (const username of Object.keys(group.usernames || {})) names.add(`${username}_${netid}`);
   }
+  // Preserve orphaned accounts as well as the accounts listed in the registry.
+  for (let i = 0; i < localStorage.length; i++) {
+    const name = localStorage.key(i);
+    if (/^[a-z0-9]{3,20}_[a-f0-9]{64}$/i.test(name) && !name.startsWith('version_')) names.add(name);
+  }
+  const entries = [...names].map(name => [name, localStorage.getItem(name)]).filter(([,value]) => value !== null);
+  rekeyAccounts(localStorage, entries, oldEncKey, newEncKey, verifier, decryptData, encryptData);
+  return newEncKey;
+}
+
+function ensureWalletProtection(resume) {
+  if (!window.isSecureContext) {
+    showToast('Open WIN over HTTPS or localhost before using a wallet.', 0, 'error');
+    return false;
+  }
+  if (!localStorage.lock) {
+    lockModal.afterProtection = resume;
+    lockModal.open();
+    return false;
+  }
+  if (!lockModal.encKey || unlockModal.isLocked()) {
+    unlockModal.afterUnlock = resume;
+    unlockModal.open();
+    return false;
+  }
+  return true;
 }
 
 function saveState() {
   if (myData && myAccount && myAccount.username && myAccount.netid) {
-    let data = stringify(myData)
-    if (localStorage.lock && lockModal.encKey){  // Consider what happens if localStorage.lock was manually deleted
-      data = encryptData(data, lockModal.encKey, true)
-    }
+    const data = protectAccount(stringify(myData), localStorage.lock, lockModal.encKey, encryptData);
     localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, data);
   }
 }
@@ -1182,8 +1177,10 @@ function saveState() {
 function loadState(account, noparse=false){
   let data = localStorage.getItem(account);
   if (!data) { return null; }
-  if (localStorage.lock && lockModal.encKey) {
-    data = decryptData(data, lockModal.encKey, true)
+  if (localStorage.lock) {
+    if (!lockModal.encKey) throw new Error('Unlock your wallet before reading account data.');
+    data = decryptData(data, lockModal.encKey, true);
+    if (!data) throw new Error('Unable to decrypt this account.');
   }
   if (noparse) return data;
   return parse(data);
@@ -1967,7 +1964,7 @@ class ChatsScreen {
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
         const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
-        const amountDisplay = `${amountStr} ${latestActivity.symbol || 'WIN'}`;
+        const amountDisplay = `${escapeHtml(amountStr)} ${escapeHtml(latestActivity.symbol || 'WIN')}`;
         const directionText = latestActivity.my ? '-' : '+';
         // Create payment preview text
         previewHTML = `<span class="payment-preview">${directionText} ${amountDisplay}</span>`;
@@ -2188,10 +2185,10 @@ class ContactsScreen {
                 <div class="chat-avatar">${avatarHtml}</div>
                 <div class="chat-content">
                     <div class="chat-header">
-                        <div class="chat-name">${incompleteIndicator}${contactName}</div>
+                        <div class="chat-name">${incompleteIndicator}${escapeHtml(contactName)}</div>
                     </div>
                     <div class="contact-list-info">
-                        ${contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`}
+                        ${escapeHtml(contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`)}
                     </div>
                 </div>
             </li>
@@ -2716,6 +2713,7 @@ class MenuModal {
     clearMyData();
 
     // Lock the app
+    lockModal.encKey = null;
     unlockModal.lock();
 
     if (isOnline) {
@@ -9309,6 +9307,7 @@ class SignInModal {
   }
 
   async open(preselectedUsername) {
+    if (!ensureWalletProtection(() => this.open(preselectedUsername))) return;
     this.preselectedUsername = preselectedUsername;
     this.selectedUsername = null;
     this.setCompletingSignIn(false);
@@ -10802,7 +10801,7 @@ class HistoryModal {
     }
     
     this.assetSelect.innerHTML = walletData.assets
-      .map((asset, index) => `<option value="${index}">${asset.name} (${asset.symbol})</option>`)
+      .map((asset, index) => `<option value="${index}">${escapeHtml(asset.name)} (${escapeHtml(asset.symbol)})</option>`)
       .join('');
   }
 
@@ -10820,8 +10819,8 @@ class HistoryModal {
     
     this.transactionList.innerHTML = walletData.history
       .map((tx) => {
-        const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
-        const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
+        const txidAttr = tx?.txid ? `data-txid="${escapeHtml(tx.txid)}"` : '';
+        const statusAttr = tx?.status ? `data-status="${escapeHtml(tx.status)}"` : '';
         
         // Check if transaction was deleted
         if (isDeleted(tx)) {
@@ -10862,12 +10861,12 @@ class HistoryModal {
                   ${isStake ? '↑ Staked' : '↓ Unstaked'}
                 </div>
                 <div class="transaction-amount">
-                  ${isStake ? '-' : (Number(tx.amount) >= 0 ? '+' : '-')} ${Math.abs(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
+                  ${isStake ? '-' : (Number(tx.amount) >= 0 ? '+' : '-')} ${Math.abs(Number(tx.amount) / Number(wei)).toFixed(6)} ${escapeHtml(asset.symbol)}
                 </div>
               </div>
               <div class="transaction-details">
                 <div class="transaction-address">
-                  ${isStake ? 'To:' : 'From:'} ${tx.nominee || 'Unknown Validator'}
+                  ${isStake ? 'To:' : 'From:'} ${escapeHtml(tx.nominee || 'Unknown Validator')}
                 </div>
                 <div class="transaction-time">${formatTime(tx.timestamp)}</div>
               </div>
@@ -10881,18 +10880,18 @@ class HistoryModal {
         const contactName = getContactDisplayName(contacts[tx.address]);
         
         return `
-          <div class="transaction-item" data-address="${tx.address}" ${txidAttr} ${statusAttr}>
+          <div class="transaction-item" data-address="${escapeHtml(tx.address)}" ${txidAttr} ${statusAttr}>
             <div class="transaction-info">
               <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
                 ${tx.sign === -1 ? (paymentStatus === 'pending' || paymentStatus === 'unknown' ? '↑ Sending' : paymentStatus === 'failed' ? '↑ Failed' : '↑ Sent') : '↓ Received'}
               </div>
               <div class="transaction-amount">
-                ${tx.sign === -1 ? '-' : '+'} ${WinPayments.formatAtomic(BigInt(tx.amount))} ${asset.symbol}
+                ${tx.sign === -1 ? '-' : '+'} ${WinPayments.formatAtomic(BigInt(tx.amount))} ${escapeHtml(asset.symbol)}
               </div>
             </div>
             <div class="transaction-details">
               <div class="transaction-address">
-                ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contactName}
+                ${tx.sign === -1 ? 'To:' : 'From:'} ${escapeHtml(tx.nominee || contactName)}
               </div>
               <div class="transaction-time">${formatTime(tx.timestamp)} ${paymentStatus ? ` · ${paymentStatus}` : ''}</div>
             </div>
@@ -14650,7 +14649,7 @@ class SearchMessagesModal {
     resultsContainer.closest('.modal-content')?.scrollTo(0, 0);
     resultsContainer.innerHTML = `
           <div class="empty-state" style="display: block">
-              <div class="empty-state-message">${message}</div>
+              <div class="empty-state-message">${escapeHtml(message)}</div>
           </div>
       `;
   }
@@ -14700,7 +14699,7 @@ class SearchMessagesModal {
               </div>
               <div class="chat-content">
                   <div class="chat-header">
-                      <div class="chat-name">${result.username}</div>
+                      <div class="chat-name">${escapeHtml(result.username)}</div>
                       <div class="chat-time">${formatTime(result.timestamp)}</div>
                   </div>
                   <div class="chat-message">
@@ -14829,7 +14828,6 @@ class SearchContactsModal {
       { key: 'linkedin', label: 'linkedin' },
       { key: 'x', label: 'x' },
     ];
-    const knownSenderInfoKeys = new Set(fieldDefinitions.map(({ key }) => key));
     const senderInfo = contact.senderInfo || null;
 
     const normalize = (value) =>
@@ -14861,14 +14859,7 @@ class SearchContactsModal {
       }
     });
 
-    if (senderInfo) {
-      Object.entries(senderInfo).forEach(([key, value]) => {
-        if (knownSenderInfoKeys.has(key)) {
-          return;
-        }
-        addField(`${key}`, value);
-      });
-    }
+    // Only public contact fields are searchable; never render attachment keys or metadata.
 
     return fields;
   }
@@ -14947,13 +14938,7 @@ class SearchContactsModal {
       return '';
     }
 
-    const highlightRegex = new RegExp(escapeRegExp(searchText), 'gi');
-    const highlightedValue = prioritizedField.value.replace(
-      highlightRegex,
-      (match) => `<mark>${match}</mark>`
-    );
-
-    return `${prioritizedField.field}: ${highlightedValue}`;
+    return `${escapeHtml(prioritizedField.field)}: ${highlightText(prioritizedField.value, searchText)}`;
   }
 
   displayContactResults(results, searchText) {
@@ -14977,7 +14962,7 @@ class SearchContactsModal {
               </div>
               <div class="chat-content">
                   <div class="chat-header">
-                      <span class="chat-name">${displayedName}</span>
+                      <span class="chat-name">${escapeHtml(displayedName)}</span>
                   </div>
                   <div class="chat-message">
                       <span class="match-label">${matchPreview}</span>
@@ -16571,7 +16556,7 @@ function initializeGatewayConfig() {
 }
 
 // Function to get the gateway to use for a request
-function getGatewayForRequest() {
+function getConfiguredGatewayForRequest() {
   //TODO: ask Omar if we should just let use edit network.js or keep current logic where when we sign in it uses network.js and when signed in we use myData.network.gateways
   // Check if myData exists
   if (!myData) {
@@ -16593,6 +16578,15 @@ function getGatewayForRequest() {
 
   // Otherwise use random selection
   return myData.network.gateways[Math.floor(Math.random() * myData.network.gateways.length)];
+}
+
+function getGatewayForRequest() {
+  try {
+    return secureGateway(getConfiguredGatewayForRequest(), window.location.href);
+  } catch (error) {
+    showToast(error.message, 0, 'error');
+    return null;
+  }
 }
 
 /**
@@ -16983,7 +16977,7 @@ class RemoveAccountsModal {
       const section = document.createElement('div');
       section.className = 'remove-accounts-section';
       const accountsForNet = groups[netid];
-      section.innerHTML = `<h3>${netid.slice(0,6)} (${accountsForNet.length})</h3>`;
+      section.innerHTML = `<h3>${escapeHtml(netid.slice(0,6))} (${accountsForNet.length})</h3>`;
       const list = document.createElement('div');
       list.className = 'account-checkboxes';
       accountsForNet.forEach(acc => {
@@ -17001,8 +16995,8 @@ class RemoveAccountsModal {
         statsText += acc.orphan ? ' (orphan)' : '';
         
         label.innerHTML = `
-          <input type="checkbox" data-username="${acc.username}" data-netid="${acc.netid}" />
-          <span class="remove-account-username">${acc.username}</span>
+          <input type="checkbox" data-username="${escapeHtmlAttribute(acc.username)}" data-netid="${escapeHtmlAttribute(acc.netid)}" />
+          <span class="remove-account-username">${escapeHtml(acc.username)}</span>
           <span class="remove-account-stats">${statsText}</span>
         `;
         list.appendChild(label);
@@ -18052,6 +18046,7 @@ class RestoreAccountModal {
   }
 
   open() {
+    if (!ensureWalletProtection(() => this.open())) return;
     // reset any backup lock UI
     this.resetBackupLockPrompt();
 
@@ -18223,7 +18218,7 @@ class RestoreAccountModal {
       
       li.innerHTML = `
         <div class="chat-content" style="padding-left: 16px;">
-          <div class="chat-name" style="white-space: normal; word-break: break-word;">${file.name}</div>
+          <div class="chat-name" style="white-space: normal; word-break: break-word;">${escapeHtml(file.name)}</div>
           <div class="chat-time" style="position: static; margin-top: 4px;">${dateStr}</div>
         </div>
       `;
@@ -18422,6 +18417,10 @@ class RestoreAccountModal {
    * @returns {number|false} Number of accounts stored, or false if the merge was aborted.
    */
   async mergeBackupAccountsToLocal(backupData) {
+    if (!localStorage.lock || !lockModal.encKey) {
+      showToast('Set and unlock a wallet password before restoring accounts.', 0, 'error');
+      return false;
+    }
     const overwrite = this.overwriteAccountsCheckbox?.checked;
     const locksMatch = !!(backupData.lock && localStorage.lock && backupData.lock === localStorage.lock);
 
@@ -18454,50 +18453,20 @@ class RestoreAccountModal {
         continue;
       }
 
-      let value = backupData[key];
+      const value = backupData[key];
       let decryptedAccount = null;
-
-      if (locksMatch) {
-        localStorage.setItem(localKey, value);
-        restoredAccountKeys.add(localKey);
-        decryptedAccount = this.tryDecryptWithLocalLock(value);
-      } else {
-        // Need to decrypt with backupEncKey if available
-        let decrypted = value;
-        if (backupData.lock) {
-          try {
-            const maybe = decryptData(value, backupEncKey, true);
-            if (maybe != null) {
-              decrypted = maybe;
-            } else {
-              showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
-              continue;
-            }
-          } catch (e) {
-            showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
-            continue;
-          }
-        }
-
-        decryptedAccount = decrypted;
-
-        // Now re-encrypt with local lock if localStorage.lock exists
-        let finalValue = decrypted;
-        if (localStorage.lock) {
-          if (!lockModal?.encKey) {
-            showToast('Local lock is set but unlock state is missing. Please unlock before importing.', 0, 'error');
-            return false;
-          }
-          try {
-            finalValue = encryptData(decrypted, lockModal.encKey, true);
-          } catch (e) {
-            showToast(`Failed to re-encrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
-            continue;
-          }
-        }
-
+      try {
+        decryptedAccount = backupData.lock
+          ? decryptData(value, locksMatch ? lockModal.encKey : backupEncKey, true)
+          : value;
+        const accountData = parse(decryptedAccount);
+        if (!accountData?.account?.keys?.secret) throw new Error('Invalid account data');
+        const finalValue = protectAccount(decryptedAccount, localStorage.lock, lockModal.encKey, encryptData);
         localStorage.setItem(localKey, finalValue);
         restoredAccountKeys.add(localKey);
+      } catch (error) {
+        showToast(`Unable to unlock or protect account ${username} on ${netid}. Skipping.`, 0, 'error');
+        continue;
       }
 
       if (decryptedAccount) {
@@ -24755,7 +24724,7 @@ class ChatModal {
       return `
       <div class="attachment-item">
         <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
-        <span class="attachment-name">${attachment.name}</span>
+        <span class="attachment-name">${escapeHtml(attachment.name)}</span>
         <button class="remove-attachment" data-index="${index}">×</button>
       </div>
     `;
@@ -32837,7 +32806,7 @@ class NewChatModal {
         this.usernameAvailable.style.display = 'inline';
         this.submitButton.disabled = true;
       } else {
-        this.usernameAvailable.textContent = 'network error';
+        this.usernameAvailable.textContent = 'Unable to check username. Check the gateway connection.';
         this.usernameAvailable.style.color = '#dc3545';
         this.usernameAvailable.style.display = 'inline';
         this.submitButton.disabled = true;
@@ -32914,6 +32883,7 @@ class CreateAccountModal {
 
   open() {
     if (this.isCreatingAccount) return;
+    if (!ensureWalletProtection(() => this.open())) return;
 
     if (migrateAccountsModal.hasMigratableAccounts()) {
       this.migrateAccountsSection.style.display = 'block';
@@ -32949,6 +32919,7 @@ class CreateAccountModal {
 
   openWithReset() {
     if (this.isCreatingAccount) return;
+    if (!ensureWalletProtection(() => this.openWithReset())) return;
 
     // Clear form fields
     this.usernameInput.value = '';
@@ -32970,6 +32941,7 @@ class CreateAccountModal {
    */
   openWithPrivateKey(username, privateKey) {
     if (this.isCreatingAccount) return;
+    if (!ensureWalletProtection(() => this.openWithPrivateKey(username, privateKey))) return;
 
     this.resetAdvancedOptions();
     this.usernameInput.value = username;
@@ -33047,6 +33019,8 @@ class CreateAccountModal {
       return;
     }
 
+    this.usernameAvailable.textContent = 'checking…';
+    this.usernameAvailable.style.display = 'inline';
     // Check network availability
     this.checkTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username);
@@ -33063,7 +33037,7 @@ class CreateAccountModal {
         this.usernameAvailable.style.display = 'inline';
         this.isUsernameAvailable = true;
       } else {
-        this.usernameAvailable.textContent = 'network error';
+        this.usernameAvailable.textContent = 'Unable to check username. Check the gateway connection.';
         this.usernameAvailable.style.color = '#dc3545';
         this.usernameAvailable.style.display = 'inline';
         this.isUsernameAvailable = false;
@@ -33163,6 +33137,8 @@ class CreateAccountModal {
       return;
     }
     
+
+    if (!ensureWalletProtection(() => this.open())) return;
 
     // Get network ID from network.js
     const { netid } = network;
@@ -35321,6 +35297,7 @@ class MigrateAccountsModal {
   }
 
   async open() {
+    if (!ensureWalletProtection(() => this.open())) return;
     if (this.isOpening || this.isMigrating || this.isActive() || createAccountModal.isCreatingAccount) return;
 
     this.isOpening = true;
@@ -35394,11 +35371,11 @@ class MigrateAccountsModal {
       <div class="account-checkboxes" id="${sectionId}-accounts">
         ${accounts.map(account => `
           <label>
-            <input type="checkbox" value="${account.username}" 
-                   data-netid="${account.netid}" 
+            <input type="checkbox" value="${escapeHtmlAttribute(account.username)}"
+                   data-netid="${escapeHtmlAttribute(account.netid)}"
                    data-section="${sectionId}"
                    ${sectionId === ('taken' || 'error') ? 'disabled' : ''}>
-            ${account.username}_${account.netid.slice(0, 6)}
+            ${escapeHtml(account.username)}_${escapeHtml(account.netid.slice(0, 6))}
           </label>
         `).join('')}
       </div>
@@ -35601,10 +35578,7 @@ class MigrateAccountsModal {
       newString: newNetId
     });
   
-    // Encrypt if needed
-    if (lockModal?.encKey) {
-      substitutionResult = encryptData(substitutionResult, lockModal.encKey, true);
-    }
+    substitutionResult = protectAccount(substitutionResult, localStorage.lock, lockModal.encKey, encryptData);
   
     // Save to new location
     localStorage.setItem(username + '_' + newNetId, substitutionResult);
@@ -35747,7 +35721,7 @@ class MigrateAccountsModal {
         <div class="inconsistency-list">
           ${missingAccounts.map(account => `
             <div class="inconsistency-item">
-              <span>${account.username}_${account.netid.slice(0, 6)}</span>
+              <span>${escapeHtml(account.username)}_${escapeHtml(account.netid.slice(0, 6))}</span>
             </div>
           `).join('')}
         </div>
@@ -35764,7 +35738,7 @@ class MigrateAccountsModal {
         <div class="inconsistency-list">
           ${unregisteredAccounts.map(account => `
             <div class="inconsistency-item">
-              <span>${account.username}_${account.netid.slice(0, 6)}</span>
+              <span>${escapeHtml(account.username)}_${escapeHtml(account.netid.slice(0, 6))}</span>
             </div>
           `).join('')}
         </div>
@@ -35786,7 +35760,7 @@ const migrateAccountsModal = new MigrateAccountsModal();
 class LockModal {
   constructor() {
     this.encKey = null;
-    this.mode = 'set'; // set, change, or remove
+    this.mode = 'set'; // set or change
   }
 
   load() {
@@ -35824,7 +35798,7 @@ class LockModal {
     this.oldPasswordInput.addEventListener('input', this.debouncedUpdateButtonState);
     this.passwordWarning = this.modal.querySelector('#passwordWarning');
     this.changeButton.addEventListener('click', () => this.pickMode('change'));
-    this.removeButton.addEventListener('click', () => this.pickMode('remove'));
+    this.removeButton.hidden = true;
   }
 
   open() {
@@ -35847,11 +35821,14 @@ class LockModal {
   }
 
   close() {
+    this.afterProtection = null;
+    this.clearInputs();
     this.modal.classList.remove('active');
   }
 
   pickMode(mode) {
-    this.mode = mode; // 'change' | 'remove'
+    if (mode !== 'change') return;
+    this.mode = mode;
     this.optionsBox.style.display = 'none';
     this.formBox.style.display = 'block';
     this.prepareForm();
@@ -35869,13 +35846,7 @@ class LockModal {
     this.confirmNewPasswordLabel.style.display = 'none';
 
     // reveal fields based on mode
-    if (this.mode === 'remove') {
-      // only the current‑password field
-      this.oldPasswordInput.style.display = 'block';
-      this.oldPasswordLabel.style.display = 'block';
-      this.lockButton.textContent = 'Remove Lock';
-
-    } else if (this.mode === 'change') {
+    if (this.mode === 'change') {
       // current + new + confirm
       this.oldPasswordInput.style.display        = 'block';
       this.oldPasswordLabel.style.display        = 'block';
@@ -35897,97 +35868,34 @@ class LockModal {
 
   async handleSubmit(event) {
     event.preventDefault();
-
     const newPassword = this.newPasswordInput.value;
-    const confirmNewPassword = this.confirmNewPasswordInput.value;
+    const confirmPassword = this.confirmNewPasswordInput.value;
     const oldPassword = this.oldPasswordInput.value;
-
-    // Check if new passwords match first (for non-remove mode)
-    if (newPassword !== confirmNewPassword) {
-      showToast('Passwords do not match. Please try again.', 0, 'error');
+    if (!['set', 'change'].includes(this.mode)) return;
+    if (newPassword.length < 12 || newPassword !== confirmPassword) {
+      showToast('Use matching passwords with at least 12 characters.', 0, 'error');
       return;
     }
-
-    // loading toast
-    let waitingToastId = showToast('Updating password...', 0, 'loading');
-
-    // if old password is visible, check if it is correct
-    if (this.oldPasswordInput.style.display !== 'none') {
-      // check if old password is empty
-      if (oldPassword.length === 0) {
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Please enter your old password.', 0, 'error');
-        return;
-      }
-
-      // decrypt the old password
-      const key = await passwordToKey(oldPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-      if (key !== localStorage.lock) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        // clear the old password input
-        this.oldPasswordInput.value = '';
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-    }
-
-    // if new password is empty, remove the password from localStorage
-    // once we are here we know the old password is correct
-    if (this.mode === 'remove') {
-      try {
-        await encryptAllAccounts(oldPassword, newPassword)
-        delete localStorage.lock;
-        this.encKey = null;
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Password removed', 2000, 'success');
-        this.close();
-      } catch (error) {
-        console.error('Decryption failed:', error);
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Failed to decrypt accounts. Please try again.', 0, 'error');
-      }
-      return;
-    }
-    
+    const waitingToastId = showToast('Protecting your accounts…', 0, 'loading');
     try {
-      // encryptData will handle the password hashing internally
-      const key = await passwordToKey(newPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
+      if (localStorage.lock) {
+        if (!oldPassword || await passwordToKey(oldPassword) !== localStorage.lock) {
+          throw new Error('Current password is incorrect.');
+        }
       }
-
-
-      
-      // Save the key in localStorage with a key of "lock"
-      localStorage.lock = key;
-      this.encKey = await passwordToKey(newPassword+"liberdusData")
-      await encryptAllAccounts(oldPassword, newPassword)
-
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
-      showToast('Password updated', 2000, 'success');
-
-      // clear the inputs
+      const key = await encryptAllAccounts(localStorage.lock ? oldPassword : '', newPassword);
+      this.encKey = key;
+      unlockModal.unlock();
       this.clearInputs();
-      
-      // Close the modal
+      const resume = this.afterProtection;
+      this.afterProtection = null;
       this.close();
+      showToast('Accounts protected with your wallet password.', 2500, 'success');
+      if (resume) setTimeout(resume, 0);
     } catch (error) {
-      console.error('Encryption failed:', error);
-      showToast('Failed to encrypt password. Please try again.', 0, 'error');
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
+      showToast(error.message || 'Unable to protect accounts. Your existing data was preserved.', 0, 'error');
+    } finally {
+      hideToast(waitingToastId);
     }
   }
 
@@ -35996,25 +35904,19 @@ class LockModal {
     const confirmPassword = this.confirmNewPasswordInput.value;
     const oldPassword = this.oldPasswordInput.value;
     
-    // Check if old password is filled and new password is empty - "Clear password" mode
-    // const isOldPasswordVisible = this.oldPasswordInput.style.display !== 'none';
-    // const isClearPasswordMode = isOldPasswordVisible && oldPassword.length > 0 && newPassword.length === 0;
-    
     let isValid = false;
     let warningMessage = '';
 
-    if (this.mode === 'remove') {
-      isValid = oldPassword.length > 0;
-    } else { // set or change mode
+    if (this.mode === 'set' || this.mode === 'change') {
       // too short
-      if (newPassword.length > 0 && newPassword.length < 4) {
-        warningMessage = 'too short';
+      if (newPassword.length > 0 && newPassword.length < 12) {
+        warningMessage = 'use at least 12 characters';
       } else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
         warningMessage = 'does not match';
       } else if (this.mode === 'change' && newPassword && oldPassword && newPassword === oldPassword) {
         warningMessage = 'same as current';
       }
-      isValid = !warningMessage && newPassword.length >= 4 && newPassword === confirmPassword;
+      isValid = !warningMessage && newPassword.length >= 12 && newPassword === confirmPassword;
       if (this.mode === 'change') {
         isValid = isValid && oldPassword.length > 0;
       }
@@ -36081,6 +35983,7 @@ class UnlockModal {
   }
 
   close() {
+    this.afterUnlock = null;
     this.passwordInput.value = '';
     this.modal.classList.remove('active');
   }
@@ -36104,10 +36007,14 @@ class UnlockModal {
 //      showToast('Unlock successful', 2000, 'success');
       lockModal.encKey = await passwordToKey(password+"liberdusData")
       this.unlock();
+      const resume = this.afterUnlock;
+      this.afterUnlock = null;
       this.close();
       const targetElement = this.openButtonElementUsed;
       this.openButtonElementUsed = null;
-      if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
+      if (resume) {
+        setTimeout(resume, 0);
+      } else if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
         // Defer click to next tick to ensure unlock modal has fully closed
         setTimeout(() => targetElement.click(), 0);
       } else {
