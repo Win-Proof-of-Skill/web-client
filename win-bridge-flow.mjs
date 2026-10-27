@@ -1,6 +1,7 @@
 import { WIN_TOKEN } from './win-domain.mjs';
 import {
   RESERVE,
+  BRIDGE_ACCOUNTING,
   encodeCall,
   quoteBridge,
   verifyVault,
@@ -53,6 +54,9 @@ export async function advanceBridge(op, c, api) {
       r.networkId !== op.networkId ||
       r.vaultAddress !== op.vaultAddress ||
       !r.completed ||
+      r.accounting !== BRIDGE_ACCOUNTING ||
+      String(r.nativeMinted) !== (op.direction === 'in' ? op.amount : '0') ||
+      String(r.nativeBurned) !== (op.direction === 'out' ? op.amount : '0') ||
       r.operation !== kind ||
       r.eventId !== op.id ||
       r.from !== op.address ||

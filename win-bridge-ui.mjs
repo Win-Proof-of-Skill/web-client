@@ -55,9 +55,9 @@ export function createBridgeUI(api) {
       if (!initial) throw new Error('Sign in to your WIN wallet first.');
       const c = await getConfig();
       same(initial);
-      body.innerHTML = `<p>1 BNB-chain WIN = 1 native WIN. A separate 0.5% fee is paid in native WIN.</p><form id="winBridgeForm"><label class="win-field">Convert<select name="direction"><option value="in">BNB WIN → native WIN</option><option value="out">Native WIN → BNB WIN</option></select></label><label class="win-field">WIN amount<input name="amount" inputmode="decimal" required autocomplete="off" placeholder="100"></label><p class="win-help">BNB gas is paid from this wallet’s BNB address. Deposits receive the converted amount minus the native fee. Withdrawals debit the converted amount plus the native fee.</p><button class="win-button">Review conversion</button></form><div id="winBridgeReview"></div><p class="win-help">Native liquidity: ${esc(
-        formatUnits(c.nativeLiquidity)
-      )} WIN. This bridge uses two of three independent operators; completion can be delayed while operators or a network are unavailable.</p><h3>Your conversions</h3>${history()}`;
+      body.innerHTML = `<p>1 BNB-chain WIN = 1 native WIN. A separate 0.5% fee is paid in native WIN.</p><p>Deposits lock WIN on BNB Chain and issue matching native WIN. You do not need native WIN to make your first deposit. Withdrawals burn native WIN before releasing WIN on BNB Chain.</p><form id="winBridgeForm"><label class="win-field">Convert<select name="direction"><option value="in">BNB WIN → native WIN</option><option value="out">Native WIN → BNB WIN</option></select></label><label class="win-field">WIN amount<input name="amount" inputmode="decimal" required autocomplete="off" placeholder="100"></label><p class="win-help">BNB gas is paid from this wallet’s BNB address. Deposits receive the converted amount minus the native fee. Withdrawals debit the converted amount plus the native fee.</p><button class="win-button">Review conversion</button></form><div id="winBridgeReview"></div><p class="win-help">Outstanding native WIN backed by deposits: ${esc(
+        formatUnits(c.nativeOutstanding)
+      )}. This bridge requires two of three operator signatures; completion can be delayed while operators or a network are unavailable.</p><h3>Your conversions</h3>${history()}`;
     } catch (e) {
       body.innerHTML = `<p>${esc(e.message)}</p><h3>Your conversions</h3>${history()}`;
     }
@@ -112,8 +112,7 @@ export function createBridgeUI(api) {
             'latest',
           ])
         );
-        if (b < q.amount || BigInt(c.nativeLiquidity) < q.amount)
-          throw new Error('Insufficient wallet WIN or native bridge liquidity.');
+        if (b < q.amount) throw new Error('Insufficient WIN on BNB Chain in this wallet.');
       } else {
         const b = await api.read('/account/' + s.address + '/balance');
         const liquidity = BigInt(

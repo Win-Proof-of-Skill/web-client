@@ -3,6 +3,7 @@ import { Signature } from './external/noble-secp256k1.js';
 import { WIN_TOKEN } from './win-domain.mjs';
 export const FEE_RECIPIENT = '9fe734826be44b76f06d1d3262130dce45076a3c000000000000000000000000';
 export const RESERVE = '6' + '0'.repeat(63);
+export const BRIDGE_ACCOUNTING = 'deposit-backed-v1';
 const hex = (bytes) => Array.from(bytes, (x) => x.toString(16).padStart(2, '0')).join('');
 const bytes = (h) => {
   h = h.replace(/^0x/, '');
@@ -39,9 +40,19 @@ export function validateBridgeConfig(c, networkId) {
     c.feeRecipient !== FEE_RECIPIENT ||
     c.reserveAddress !== RESERVE ||
     c.threshold !== 2 ||
-    c.exchangeRate !== '1:1'
+    c.exchangeRate !== '1:1' ||
+    c.accounting !== BRIDGE_ACCOUNTING ||
+    c.requiresNativePrefunding !== false
   )
     throw new Error('Bridge protocol mismatch');
+  const supplyFields = ['nativeMinted', 'nativeBurned', 'nativeOutstanding', 'backedWithdrawalCapacity'];
+  if (supplyFields.some((key) => typeof c[key] !== 'string' || !/^(0|[1-9][0-9]*)$/.test(c[key])))
+    throw new Error('Invalid bridge supply accounting');
+  if (
+    BigInt(c.nativeMinted) - BigInt(c.nativeBurned) !== BigInt(c.nativeOutstanding) ||
+    c.nativeOutstanding !== c.backedWithdrawalCapacity
+  )
+    throw new Error('Invalid bridge supply accounting');
   if (
     !/^0x[a-f0-9]{40}$/.test(c.vaultAddress) ||
     !/^0x[a-f0-9]{64}$/.test(c.vaultCodeHash) ||
@@ -192,7 +203,7 @@ export async function verifyOperatorsReady(c, fetcher = fetch) {
       const response = await fetcher(base + '/health', { signal: AbortSignal.timeout(10000) });
       if (!response.ok) throw new Error('Operator unavailable');
       const r = await response.json();
-      if (r.networkId !== c.networkId || r.vaultAddress !== c.vaultAddress || !c.operators.includes(r.operator))
+      if (r.accounting !== BRIDGE_ACCOUNTING || r.networkId !== c.networkId || r.vaultAddress !== c.vaultAddress || !c.operators.includes(r.operator))
         throw new Error('Operator deployment mismatch');
       return r.operator;
     })
