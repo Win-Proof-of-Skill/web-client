@@ -103,6 +103,21 @@ export function createMetaMask({ host = globalThis.window, onChange = () => {} }
 }
 
 const validHash = (hash) => typeof hash === 'string' && /^0x[a-f0-9]{64}$/i.test(hash);
+function rpcQuantity(value, field) {
+  // Injected providers can return numbers even though JSON-RPC quantities are
+  // hex strings. Normalize exact integers only; never coerce objects or round.
+  if (
+    !(
+      (typeof value === 'bigint' && value >= 0n) ||
+      (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) ||
+      (typeof value === 'string' && /^(?:0x[0-9a-f]+|0|[1-9][0-9]*)$/i.test(value))
+    )
+  )
+    throw new Error(`Invalid MetaMask ${field}: expected a non-negative integer.`);
+  const integer = BigInt(value);
+  if (integer >= 2n ** 256n) throw new Error(`Invalid MetaMask ${field}: value is out of range.`);
+  return '0x' + integer.toString(16);
+}
 // Only explicit permission, user, method, and request-validation rejections prove
 // that this call was not submitted. Transport/internal/pending errors do not.
 const notSubmitted = new Set([4001, 4100, 4200, -32600, -32601, -32602]);
@@ -162,21 +177,26 @@ export async function sendMetaMaskTransaction(
     Object.assign(op, next);
     throw Object.assign(new Error(detail.message), detail.code === undefined ? {} : { code: detail.code });
   }
-  let provider, call, nonce, gasLimit;
+  let provider, call, nonce, gasHex;
   onStatus('Checking MetaMask account and BNB network fees…');
   try {
     provider = await wallet.assertAccount(op.externalAddress);
     const from = normalize(op.externalAddress);
-    call = { from, to, data, value: '0x0' };
+    if (!isEvmAddress(to)) throw new Error('Invalid MetaMask transaction destination. Reopen the transfer.');
+    if (typeof data !== 'string' || !/^0x(?:[a-f0-9]{2})*$/i.test(data))
+      throw new Error('Invalid MetaMask transaction data. Reopen the transfer.');
+    call = { from, to: to.toLowerCase(), data: data.toLowerCase(), value: '0x0' };
     const [pendingNonce, gas, price, balance] = await Promise.all([
       provider.request({ method: 'eth_getTransactionCount', params: [from, 'pending'] }),
       provider.request({ method: 'eth_estimateGas', params: [call] }),
       provider.request({ method: 'eth_gasPrice' }),
       provider.request({ method: 'eth_getBalance', params: [from, 'pending'] }),
     ]);
-    nonce = pendingNonce;
-    gasLimit = (BigInt(gas) * 12n) / 10n + 1n;
-    if (BigInt(balance) < gasLimit * BigInt(price))
+    nonce = rpcQuantity(pendingNonce, 'nonce');
+    const gasLimit = (BigInt(rpcQuantity(gas, 'gas estimate')) * 12n) / 10n + 1n;
+    gasHex = rpcQuantity(gasLimit, 'gas limit');
+    const gasPrice = BigInt(rpcQuantity(price, 'gas price'));
+    if (BigInt(rpcQuantity(balance, 'BNB balance')) < gasLimit * gasPrice)
       throw new Error('Add BNB to your connected MetaMask account for the network fee.');
     await wallet.assertAccount(from);
     if (!isCurrent()) throw new Error('WIN account changed. Reopen the transfer.');
@@ -198,7 +218,7 @@ export async function sendMetaMaskTransaction(
   try {
     hash = await provider.request({
       method: 'eth_sendTransaction',
-      params: [{ ...call, nonce, gas: '0x' + gasLimit.toString(16), chainId: '0x38' }],
+      params: [{ ...call, nonce, gas: gasHex, chainId: '0x38' }],
     });
     if (!validHash(hash)) throw new Error('MetaMask did not return a transaction hash. Check MetaMask Activity.');
   } catch (error) {

@@ -176,12 +176,50 @@ The companion commit failed because the SSH signing key is locked and
 `ssh-askpass` is unavailable. Its three task files remain staged; signing was
 not bypassed.
 
+## MetaMask `startsWith` transaction error (2026-10-28)
+
+Version `2026.1028.0006` (`ag`) validates and encodes transaction quantities
+before sending them to MetaMask. The client previously passed the provider's
+`eth_getTransactionCount` result directly into `nonce`. A numeric result reaches
+MetaMask's string-only normalizer and reproduces `e.startsWith is not a function`
+with code `-32603`. This is a reproduced failure path, not a capture of the user's
+live provider payload; the exact field in that live error is not independently
+verified.
+
+The client now converts exact non-negative integers to canonical hexadecimal
+strings, rejects unsafe numbers, objects and malformed values, and validates
+destination addresses and calldata before estimating gas. Nonce recovery still
+requires an exact match; the same encoded nonce is saved before requesting a
+signature. No retry is added for internal errors or uncertain old requests.
+
+References: MetaMask's [transaction normalizers](https://github.com/MetaMask/core/blob/main/packages/transaction-controller/src/utils/utils.ts)
+call the string-based [add0x helper](https://github.com/MetaMask/utils/blob/main/src/hex.ts).
+Its [send-transaction documentation](https://docs.metamask.io/metamask-connect/evm/reference/json-rpc-api/eth_sendTransaction/)
+shows hexadecimal string fields.
+
+Validation: 37 connector/storage tests and one offline browser funding/withdrawal
+cycle passed. Before the fix, 9 of the added cases failed, including numeric
+nonces reproducing the exact reported error. Browser coverage supplies numeric
+nonces through approval, deposit and release and retains prior recovery checks.
+Syntax and whitespace checks passed. No live wallet or real payment was used.
+
+Client base: `8731b12b7cfb129e5ab9c748b8fdf107cb911a32` plus this working-tree
+change. Companion branch `codex/metamask-hex-transaction-tests` at
+`/tmp/win-metamask-hex-tests` was created from published main `2fc3036`.
+Exact commands and test files are recorded in `local-tests/METAMASK-HEX.md`.
+The shared runner/instructions are still missing from main; focused tests ran
+directly. Commits, topic pushes, linked PRs, review, deployment and revalidation
+against merged client main before companion integration remain pending.
+The companion commit attempt was blocked by the locked SSH signing key and
+missing `ssh-askpass`; all three task files remain staged and signing was not
+bypassed.
+
 ## Deployment requirements
 
 This wallet change is client-only. It uses the existing `deposit-backed-v1`
 bridge endpoints, vault and operators; no server change or vault redeployment
 is required. Publish all changed client assets, including `win-metamask.mjs` and
-`version.html` (`2026.1028.0005`). The normal version refresh includes the new
+`version.html` (`2026.1028.0006`). The normal version refresh includes the new
 module. The checkout already uses HTTPS/WSS gateway routes.
 
 The deployed network must report a configured, enabled, operational bridge at
