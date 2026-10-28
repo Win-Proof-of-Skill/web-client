@@ -588,6 +588,16 @@ textarea:focus-visible {
 .win-dialog-error:empty {
   display: none;
 }
+#winBridgeDialog > .win-dialog-error {
+  padding: 16px 28px;
+  scroll-margin-top: 85px;
+  overflow-wrap: anywhere;
+  background: #fff6ed;
+}
+.win-request-error {
+  color: #a22c1d;
+  overflow-wrap: anywhere;
+}
 .win-dialog[aria-busy='true'] .win-dialog-header::after {
   content: 'Working…';
   font-size: 11px;

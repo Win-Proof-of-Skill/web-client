@@ -133,12 +133,55 @@ The test commit was blocked by the locked SSH signing key and missing
 ssh-askpass. Its four files remain staged with no new commit; signing was not
 bypassed.
 
+## MetaMask requests without an approval prompt (2026-10-28)
+
+Version `2026.1028.0005` (`af`) distinguishes explicit provider rejection from
+an uncertain submission. Previously, any `eth_sendTransaction` error other than
+user rejection left a recovery form asking for a hash, even if MetaMask rejected
+the call before creating a transaction. Permission, unsupported-method and
+invalid-request errors now preserve the transfer as a draft that can be continued
+without a hash. Cleanup is saved before removing the recovery barrier in memory.
+Internal, disconnected, pending-request and unknown failures retain the original
+request; they are never automatically resubmitted. Existing uncertain requests
+cannot be retroactively classified and keep their recovery/set-aside controls.
+
+The client saves bounded error messages and numeric codes with the transfer,
+renders them as escaped text, and shows the active message above the transfer
+list. Preparation and wallet-confirmation notices identify the current step.
+A returned transaction hash is kept even if subsequent storage fails. Existing
+WIN allowance still skips token approval and proceeds to the funding request.
+
+The deployed module matched version `2026.1028.0004` when inspected. The exact
+cause of this user's missing MetaMask prompt remains unverified: their live
+browser/provider error was not available. This change fixes the misleading error
+handling and exposes the diagnostic, without claiming a successful live funding.
+
+Validation: 38 focused checks passed (27 connector/storage tests, 3 browser
+error cases, 7 recovery forms and 1 simulated funding/withdrawal cycle). Thirteen
+new connector cases failed before the fix. The old insufficient-gas test now
+expects saved diagnostic metadata while continuing to require zero submissions
+and zero recovery intents. Syntax and whitespace checks passed. Tests use only
+synthetic wallets; no real funds were moved.
+
+Tested client: `4de62dc033064bd9efdefae22404c0d1d3c1d131` plus this working-tree
+change. Companion worktree: `/tmp/win-metamask-errors-tests`, branch
+`codex/metamask-request-errors-tests`, from published `main` at `2fc3036`.
+Files and exact commands are in `local-tests/METAMASK-REQUEST-ERRORS.md` there.
+Published main lacks `AGENTS.md`, `local-tests/README.md` and its documented
+runner, so shared-runner setup remains unavailable; focused suites ran directly.
+Client/companion commits, topic pushes, linked PRs, review and deployment remain
+pending. Before companion merge, land the required client features on client
+main and rerun against that revision. No tests are published by these local runs.
+The companion commit failed because the SSH signing key is locked and
+`ssh-askpass` is unavailable. Its three task files remain staged; signing was
+not bypassed.
+
 ## Deployment requirements
 
 This wallet change is client-only. It uses the existing `deposit-backed-v1`
 bridge endpoints, vault and operators; no server change or vault redeployment
 is required. Publish all changed client assets, including `win-metamask.mjs` and
-`version.html` (`2026.1028.0004`). The normal version refresh includes the new
+`version.html` (`2026.1028.0005`). The normal version refresh includes the new
 module. The checkout already uses HTTPS/WSS gateway routes.
 
 The deployed network must report a configured, enabled, operational bridge at

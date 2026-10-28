@@ -8,6 +8,12 @@ export function createBridgeUI(api) {
   const dialog = document.getElementById('winBridgeDialog');
   const body = dialog.querySelector('.win-dialog-body');
   const status = dialog.querySelector('[role=status]');
+  const showStatus = (message) => {
+    status.textContent = message;
+    const notice = document.getElementById('winWalletStatus');
+    if (notice) notice.textContent = message;
+    if (message && dialog.open) status.scrollIntoView({ block: 'nearest' });
+  };
   let busy = false,
     reviewed = null,
     direction = 'in',
@@ -97,10 +103,15 @@ export function createBridgeUI(api) {
             : ''
         }
         ${
+          o.walletError?.message && ['pending', 'needs-recovery'].includes(o.status)
+            ? `<p class="win-request-error">${esc(o.walletError.message)}</p>`
+            : ''
+        }
+        ${
           unknown
             ? `<form data-win-recover="${esc(o.localId)}" data-step="${esc(unknown[0])}"><label class="win-field">${esc(
                 recoveryStep
-              )} transaction hash from MetaMask Activity<input name="hash" required pattern="0x[a-fA-F0-9]{64}" autocomplete="off"></label><p class="win-help">The wallet response was interrupted. Choose the transaction for this step. An ordinary WIN transfer cannot recover it.</p><button class="win-button secondary">Recover transaction</button></form>`
+              )} transaction hash from MetaMask Activity<input name="hash" required pattern="0x[a-fA-F0-9]{64}" autocomplete="off"></label><p class="win-help">MetaMask did not return a transaction hash. Open MetaMask to check for a pending request. Only enter a hash if this step appears in Activity; an ordinary WIN transfer cannot recover it.</p><button class="win-button secondary">Recover transaction</button></form>`
             : ''
         }
         ${
@@ -192,10 +203,8 @@ export function createBridgeUI(api) {
         e.code === 4001
           ? 'MetaMask request canceled. You can try again; any pending transfer remains saved.'
           : e.message;
-      status.textContent = message;
-      const notice = document.getElementById('winWalletStatus');
-      if (notice) notice.textContent = message;
       renderHistory();
+      showStatus(message);
     } finally {
       busy = false;
       inputs.forEach((b) => (b.disabled = false));
@@ -212,6 +221,10 @@ export function createBridgeUI(api) {
       try {
         message = await advanceBridge(op, await getConfig(), {
           ...api,
+          sendBnb: (o, step, to, data) =>
+            api.sendBnb(o, step, to, data, (notice) => {
+              if (token === run) showStatus(notice);
+            }),
           assertExternal: async (o) => {
             await wallet.assertAccount(o.externalAddress);
             if (BigInt(await api.rpc('eth_getBalance', [o.externalAddress, 'pending'])) === 0n)

@@ -9,7 +9,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ae'; // Also increment this when you increment version.html
+const version = 'af'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -39676,13 +39676,13 @@ const bridgeUI = createBridgeUI({
       catch (error) { if (!/already known|known transaction|nonce too low/i.test(error.message)) throw error; }
     }
   },
-  async sendBnb(op, step, to, data) {
+  async sendBnb(op, step, to, data, onStatus) {
     const account = myAccount;
     const check = () => { if (account !== myAccount || bridgeSession()?.address !== op.address) throw new Error('Signing wallet changed'); };
     check();
     if (op.externalAddress) {
       await sendMetaMaskTransaction(op, step, to, data, {
-        wallet: bridgeUI.wallet, save: saveBridgeOperation,
+        wallet: bridgeUI.wallet, save: saveBridgeOperation, onStatus,
         isCurrent: () => account === myAccount && bridgeSession()?.address === op.address,
       });
       return;

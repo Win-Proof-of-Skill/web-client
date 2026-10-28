@@ -103,8 +103,36 @@ export function createMetaMask({ host = globalThis.window, onChange = () => {} }
 }
 
 const validHash = (hash) => typeof hash === 'string' && /^0x[a-f0-9]{64}$/i.test(hash);
-export async function sendMetaMaskTransaction(op, step, to, data, { wallet, save, isCurrent = () => true }) {
-  const provider = await wallet.assertAccount(op.externalAddress);
+// Only explicit permission, user, method, and request-validation rejections prove
+// that this call was not submitted. Transport/internal/pending errors do not.
+const notSubmitted = new Set([4001, 4100, 4200, -32600, -32601, -32602]);
+const errorText = (error) =>
+  (typeof error?.message === 'string' && error.message.trim().slice(0, 600)) || 'No error details were returned.';
+function walletError(error, step, phase) {
+  const code = Number.isSafeInteger(error?.code) ? error.code : undefined;
+  const help = {
+    4001: 'Request canceled. Choose Continue when ready.',
+    4100: 'Use Change account to reconnect the funding account, then choose Continue.',
+    4200: 'Update MetaMask and reconnect before continuing.',
+    [-32601]: 'Update MetaMask and reconnect before continuing.',
+    [-32600]: 'The wallet rejected the request format. No transaction hash is needed for this attempt.',
+    [-32602]: 'The wallet rejected the request parameters. No transaction hash is needed for this attempt.',
+    [-32002]: 'Open MetaMask and check for a pending request before doing anything else.',
+  }[code];
+  return {
+    step,
+    phase,
+    ...(code === undefined ? {} : { code }),
+    message: `MetaMask${code === undefined ? '' : ` (${code})`}: ${errorText(error)}${help ? ` ${help}` : ''}`,
+  };
+}
+export async function sendMetaMaskTransaction(
+  op,
+  step,
+  to,
+  data,
+  { wallet, save, isCurrent = () => true, onStatus = () => {} }
+) {
   if (!isCurrent()) throw new Error('WIN account changed. Reopen the transfer.');
   op.walletRequests ??= {};
   const previous = op.walletRequests[step];
@@ -116,19 +144,45 @@ export async function sendMetaMaskTransaction(op, step, to, data, { wallet, save
     throw new Error(
       'This MetaMask request has no saved transaction hash. Recover it from MetaMask Activity before trying again.'
     );
-  const from = normalize(op.externalAddress);
-  const call = { from, to, data, value: '0x0' };
-  const [nonce, gas, price, balance] = await Promise.all([
-    provider.request({ method: 'eth_getTransactionCount', params: [from, 'pending'] }),
-    provider.request({ method: 'eth_estimateGas', params: [call] }),
-    provider.request({ method: 'eth_gasPrice' }),
-    provider.request({ method: 'eth_getBalance', params: [from, 'pending'] }),
-  ]);
-  const gasLimit = (BigInt(gas) * 12n) / 10n + 1n;
-  if (BigInt(balance) < gasLimit * BigInt(price))
-    throw new Error('Add BNB to your connected MetaMask account for the network fee.');
-  await wallet.assertAccount(from);
-  if (!isCurrent()) throw new Error('WIN account changed. Reopen the transfer.');
+  function fail(error, phase) {
+    const detail = walletError(error, step, phase);
+    const next = { ...op, walletError: detail };
+    if (phase === 'request' && notSubmitted.has(detail.code)) {
+      next.walletRequests = { ...op.walletRequests };
+      delete next.walletRequests[step];
+    }
+    // Commit cleanup before removing the recovery barrier from the live object.
+    try {
+      save(next);
+    } catch (storageError) {
+      throw new Error(
+        `${detail.message} Could not save the result: ${errorText(storageError)} The saved request has been kept.`
+      );
+    }
+    Object.assign(op, next);
+    throw Object.assign(new Error(detail.message), detail.code === undefined ? {} : { code: detail.code });
+  }
+  let provider, call, nonce, gasLimit;
+  onStatus('Checking MetaMask account and BNB network fees…');
+  try {
+    provider = await wallet.assertAccount(op.externalAddress);
+    const from = normalize(op.externalAddress);
+    call = { from, to, data, value: '0x0' };
+    const [pendingNonce, gas, price, balance] = await Promise.all([
+      provider.request({ method: 'eth_getTransactionCount', params: [from, 'pending'] }),
+      provider.request({ method: 'eth_estimateGas', params: [call] }),
+      provider.request({ method: 'eth_gasPrice' }),
+      provider.request({ method: 'eth_getBalance', params: [from, 'pending'] }),
+    ]);
+    nonce = pendingNonce;
+    gasLimit = (BigInt(gas) * 12n) / 10n + 1n;
+    if (BigInt(balance) < gasLimit * BigInt(price))
+      throw new Error('Add BNB to your connected MetaMask account for the network fee.');
+    await wallet.assertAccount(from);
+    if (!isCurrent()) throw new Error('WIN account changed. Reopen the transfer.');
+  } catch (error) {
+    fail(error, 'preparation');
+  }
   // MetaMask broadcasts before returning its hash. Persist intent first; an ambiguous
   // response must be recovered, never silently retried as another deposit.
   op.walletRequests[step] = { ...call, nonce, status: 'requesting' };
@@ -138,22 +192,32 @@ export async function sendMetaMaskTransaction(op, step, to, data, { wallet, save
     delete op.walletRequests[step]; // Nothing has been requested from MetaMask yet.
     throw error;
   }
+  const label = { approval: 'WIN approval', deposit: 'WIN funding', release: 'WIN withdrawal' }[step] || 'transaction';
+  onStatus(`Open MetaMask to confirm ${label}. If no popup appears, open the MetaMask extension or app.`);
+  let hash;
   try {
-    const hash = await provider.request({
+    hash = await provider.request({
       method: 'eth_sendTransaction',
       params: [{ ...call, nonce, gas: '0x' + gasLimit.toString(16), chainId: '0x38' }],
     });
     if (!validHash(hash)) throw new Error('MetaMask did not return a transaction hash. Check MetaMask Activity.');
-    op.walletRequests[step].hash = hash.toLowerCase();
-    op.walletRequests[step].status = 'submitted';
-    op[step + 'Hash'] = hash.toLowerCase();
+  } catch (error) {
+    fail(error, 'request');
+  }
+  // Saving a returned hash is separate from the provider rejection handler:
+  // a storage error must never erase a transaction that MetaMask submitted.
+  op.walletRequests[step].hash = hash.toLowerCase();
+  op.walletRequests[step].status = 'submitted';
+  op[step + 'Hash'] = hash.toLowerCase();
+  delete op.walletError;
+  try {
     save(op);
   } catch (error) {
-    if (error.code === 4001) {
-      delete op.walletRequests[step];
-      save(op);
-    }
-    throw error;
+    throw new Error(
+      `MetaMask submitted ${hash}, but the app could not save it: ${errorText(
+        error
+      )} Keep this hash for recovery; do not make another payment.`
+    );
   }
 }
 
@@ -172,10 +236,7 @@ export async function recoverMetaMaskTransaction(op, step, hash, { rpc, save }) 
     BigInt(tx.value) !== 0n ||
     BigInt(tx.nonce) !== BigInt(request.nonce)
   ) {
-    if (
-      tx?.to?.toLowerCase() === WIN_TOKEN.address &&
-      /^0xa9059cbb[a-f0-9]{128}$/i.test(tx.input || tx.data || '')
-    )
+    if (tx?.to?.toLowerCase() === WIN_TOKEN.address && /^0xa9059cbb[a-f0-9]{128}$/i.test(tx.input || tx.data || ''))
       throw new Error(
         'This is a direct WIN transfer, not a bridge transaction. Use the approval, deposit, or withdrawal hash requested by this recovery step in MetaMask Activity.'
       );
@@ -184,5 +245,6 @@ export async function recoverMetaMaskTransaction(op, step, hash, { rpc, save }) 
   request.hash = hash.toLowerCase();
   request.status = 'submitted';
   op[step + 'Hash'] = hash.toLowerCase();
+  if (op.walletError?.step === step) delete op.walletError;
   save(op);
 }
