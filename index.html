@@ -2711,60 +2711,26 @@
       <!-- Receive Modal -->
       <div class="modal fixed-header" id="receiveModal">
         <div class="modal-header">
-          <button class="back-button" id="closeReceiveModal"></button>
+          <button class="back-button" id="closeReceiveModal" aria-label="Close Receive"></button>
           <div class="modal-title">Receive WIN</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
             <div class="form-group">
-              <label>Your Address</label>
+              <label>Your WIN app address</label>
               <div class="address-container">
-                <div
-                  id="displayAddress"
-                  class="form-control address-display"
-                ></div>
+                <div id="displayAddress" class="form-control address-display"></div>
                 <button
                   id="copyAddress"
                   class="icon-button address-copy-button"
+                  aria-label="Copy WIN app address"
                 ></button>
               </div>
               <div id="qrcode"></div>
-
-              <!-- QR Code Preview (Moved here) -->
-              <div id="qrDataPreview" class="form-control qr-data-preview" style="display: none">
-                <!-- Error messages will be placed here directly by JS -->
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="receiveAmount">Amount (Optional)</label>
-              <div class="amount-container">
-                <input
-                  inputmode="decimal"
-                  type="text"
-                  id="receiveAmount"
-                  class="form-control"
-                  placeholder="Enter amount"
-                  step="any"
-                  min="0"
-                />
-                <button id="toggleReceiveBalance" class="toggle-balance">
-                  <span id="receiveBalanceSymbol">WIN</span>
-                </button>
-              </div>
-            </div>
-            <div class="form-group" id="receiveMemoGroup">
-              <label for="receiveMemo">Memo (Optional)</label>
-              <textarea
-                id="receiveMemo"
-                class="form-control"
-                placeholder="Add a note for the payment"
-                maxlength="300"
-              ></textarea>
+              <div id="qrDataPreview" class="qr-data-preview" role="status" hidden></div>
             </div>
           </div>
         </div>
-        <a class="last-item" href="#"> </a>
       </div>
 
       <!-- EVM Receive Modal -->

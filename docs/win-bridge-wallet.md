@@ -54,12 +54,54 @@ MetaMask needs BNB for gas; WIN cannot pay BNB network fees. Reviews keep the WI
 fee and BNB gas separate. Account/network changes invalidate a review, and
 clearing the signed-in app account disconnects the local MetaMask session.
 
+## Account selection and Receive (2026-10-28)
+
+**Connect MetaMask** and **Change account** explicitly request account permission
+so MetaMask presents its account picker, including for previously connected sites.
+Canceling leaves the app disconnected instead of silently reusing an old account.
+The selected account remains bound to transfer reviews and pending operations.
+The implementation uses the injected provider's
+[`wallet_requestPermissions`](https://docs.metamask.io/metamask-connect/evm/reference/json-rpc-api/wallet_requestPermissions/)
+before reading the approved accounts.
+
+**Receive** now contains only the WIN app address, its copy button, and a QR code.
+The displayed, copied, and QR-encoded values are the same canonical WIN account
+address (64 lowercase hexadecimal characters). Amount, memo, unit toggle, and
+old username/payment links are removed from Receive. This is the app address;
+BNB-chain funding still uses **Fund wallet** and the vault deposit flow.
+
+The app scanner accepts the new address QR, verifies its account and username
+mapping on the current network, and fills the recipient only. It continues to
+accept old payment QR codes. Edited/closed forms ignore stale lookups, and a
+changed recipient mapping cannot replace the reviewed destination.
+
+Client tested: `codex/win-bridge-wallet` at
+`f6914eaea5e4b70f94f723edf85d0e2ee7a2a08d` plus these working-tree changes and
+the preserved recovery fix; version `2026.1028.0003` (`ad`). **29 tests passed**:
+12 connector/storage, six address-QR, four existing bridge UI, three Receive
+browser, one simulated funding/export browser round trip, and three existing
+recovery browser cases. New picker, Receive, and scanner regressions failed
+before their respective fixes. Syntax and whitespace checks passed. QR images
+were decoded at original and displayed sizes; the mobile layout was inspected.
+No live MetaMask extension or real transfer was tested. Server unchanged.
+
+Companion files and exact commands:
+`/tmp/win-account-receive-tests/local-tests/WALLET-ACCOUNT-RECEIVE.md`, branch
+`codex/wallet-account-receive-tests`, based on published main
+`2fc3036c11900073e0616cf9ddcdf3cf233904e3`. The shared main still lacks its
+instructions and offline runner, so shared-runner setup remains unavailable;
+focused suites ran directly. The companion commit failed because the SSH
+signing key is locked and ssh-askpass is unavailable; its five files remain
+staged with no new commit ID. Signing was not bypassed. Client/test commits,
+pushes, linked PRs, review, and deployment remain pending. Rerun against merged client main before merging
+the dependent companion tests.
+
 ## Deployment requirements
 
 This wallet change is client-only. It uses the existing `deposit-backed-v1`
 bridge endpoints, vault and operators; no server change or vault redeployment
 is required. Publish all changed client assets, including `win-metamask.mjs` and
-`version.html` (`2026.1028.0001`). The normal version refresh includes the new
+`version.html` (`2026.1028.0003`). The normal version refresh includes the new
 module. The checkout already uses HTTPS/WSS gateway routes.
 
 The deployed network must report a configured, enabled, operational bridge at
@@ -68,6 +110,27 @@ matching operators online. The client checks vault code, token, network, fees,
 operator identities and signatures before progressing. Deployment readiness is
 checked at runtime; no production services were changed or real coins moved in
 this task. See the [server guide](../../server/bridge/README.md) for bridge setup.
+
+## Old transaction recovery fix (2026-10-28)
+
+Recovery now captures the entered hash before disabling form controls. Disabled
+inputs are omitted from browser FormData, which previously caused the null
+`trim` error even when a valid hash had been entered. Missing values now reach
+the normal validation message. Recovery verifies the existing transaction and
+preserves its pending operation; it does not create another deposit.
+
+Three focused Chromium regressions failed before the fix and passed afterward:
+old pending entry recovery, missing input, and rejection of a different
+transaction destination. Client base: `f6914eaea5e4b70f94f723edf85d0e2ee7a2a08d`
+plus this fix; version `2026.1028.0002` (`ac`). Server unchanged.
+
+Companion tests and commands are in
+`/tmp/win-metamask-recovery-tests/local-tests/RECOVERY-FORM.md`, branch
+`codex/metamask-recovery-form-tests`, based on published main `2fc3036`.
+The shared runner remains unavailable. The test commit was blocked by the locked
+SSH signing key and missing ssh-askpass; its two files remain staged. Client
+commit, topic pushes, linked PRs, review and deployment remain pending. Rerun
+against merged client main before integrating the dependent companion test.
 
 ## MetaMask validation and publication
 

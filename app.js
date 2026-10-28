@@ -9,7 +9,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ab'; // Also increment this when you increment version.html
+const version = 'ad'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -33444,6 +33444,8 @@ class SendAssetFormModal {
   reset() {
     sendAssetConfirmModal.close();
     this.session = null;
+    this.qrRequest = null;
+    this.qrRecipient = null;
     clearTimeout(this.sendAssetFormModalCheckTimeout);
     this.sendAssetFormModalCheckTimeout = null;
     this.foundAddressObject = { address: null };
@@ -33474,6 +33476,8 @@ class SendAssetFormModal {
     this.submitButton.disabled = true;
     const session = this.session;
     const rawInput = e.target.value.trim();
+    this.qrRequest = null;
+    if (this.qrRecipient?.username !== rawInput) this.qrRecipient = null;
     this.foundAddressObject = { address: null };
     this.tollInfo = {};
     this.needTollInfo = false;
@@ -33515,6 +33519,12 @@ class SendAssetFormModal {
       if (!this.isCurrentSession(session)) return;
       const taken = await checkUsernameAvailability(username, session.account.keys.address, found);
       if (!this.isCurrentSession(session) || this.usernameInput.value !== username) return;
+      if (this.qrRecipient && (!found.address || longAddress(found.address) !== this.qrRecipient.address)) {
+        usernameAvailable.textContent = 'Recipient does not match the scanned WIN address. Scan again.';
+        usernameAvailable.style.color = '#dc3545';
+        usernameAvailable.style.display = 'inline';
+        return;
+      }
       this.foundAddressObject = found;
       if (taken == 'taken') {
         usernameAvailable.textContent = 'found';
@@ -33738,7 +33748,7 @@ class SendAssetFormModal {
     this.balanceWarning.style.display = warning.style.display;
     if (!hasBalance || !this.validateToll(amountWei)) return;
 
-    const payment = { amountWei, username, memo, retryTxId: this.retryTxIdInput.value };
+    const payment = { amountWei, username, memo, recipientAddress: normalizeAddress(recipient.address), retryTxId: this.retryTxIdInput.value };
     if (!sendAssetConfirmModal.open(payment)) return;
     const libAmount = EthNum.toStr(amountWei);
     const usdAmount = amountUnit === 'USD' ? Number(amountText) : Number(libAmount) * getStabilityFactor();
@@ -34104,68 +34114,55 @@ class SendAssetFormModal {
    * */
   async fillFromQR(data) {
     const session = this.session;
-    // Explicitly check for the required prefix
-    if (!data || !data.startsWith('liberdus://')) {
-      console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
-      showToast('Invalid payment QR code format.', 0, 'error');
-      // Optionally clear fields or leave them as they were
-      this.usernameInput.value = '';
-      this.amountInput.value = '';
-      this.memoInput.value = '';
-      return; // Stop processing if the format is wrong
-    }
-
-    // Clear existing fields first
+    if (!this.isCurrentSession(session)) return;
+    this.qrRecipient = null;
     this.usernameInput.value = '';
     this.amountInput.value = '';
     this.memoInput.value = '';
+    // Invalidate previous recipient lookups before resolving this QR.
+    this.usernameInput.dispatchEvent(new Event('input'));
+    this.amountInput.dispatchEvent(new Event('input'));
+    const request = this.qrRequest = {};
+    const isCurrent = () => this.isCurrentSession(session) && this.qrRequest === request;
 
     try {
-      // Remove the prefix and process the base64 data
-      const base64Data = data.substring('liberdus://'.length);
-      const jsonData = bin2utf8(base642bin(base64Data));
-      const paymentData = JSON.parse(jsonData);
-      if (paymentData.networkId && paymentData.networkId !== network.netid) {
-        throw new Error('Payment QR code belongs to another network');
-      }
-
-      if (paymentData.u) {
-        this.usernameInput.value = paymentData.u;
-      }
-      if (paymentData.d) {
-        try {
+      if (typeof data === 'string' && /^[a-f0-9]{40}0{24}$/i.test(data)) {
+        const address = data.toLowerCase();
+        const response = await queryNetwork(`/account/${address}`);
+        if (!isCurrent()) return;
+        const username = response?.account?.id === address
+          ? await getVerifiedUsername(response.account.alias, address, getUsernameAddress)
+          : null;
+        if (!isCurrent()) return;
+        if (!username) throw new Error('Unable to verify this WIN address. Check the connection and recipient account.');
+        this.qrRecipient = { address, username };
+        this.usernameInput.value = username;
+      } else {
+        // Continue accepting previously saved payment QR codes.
+        if (typeof data !== 'string' || !data.startsWith('liberdus://'))
+          throw new Error('Invalid WIN address or payment QR code.');
+        const paymentData = JSON.parse(bin2utf8(base642bin(data.substring('liberdus://'.length))));
+        if (paymentData.networkId && paymentData.networkId !== network.netid)
+          throw new Error('Payment QR code belongs to another network.');
+        if (paymentData.d) {
           const symbol = String(paymentData.d).toUpperCase();
           const current = String(this.balanceSymbol.textContent || 'WIN').toUpperCase();
-          if (symbol === 'USD' && current !== 'USD') {
-            // call the existing toggle handler to reuse conversion logic
-            await this.handleToggleBalance();
-          } else if (symbol === 'WIN' && current !== 'WIN') {
-            await this.handleToggleBalance();
-          }
-        } catch (err) {
-          console.error('Error toggling balance from QR display unit field', err);
+          if ((symbol === 'USD' || symbol === 'WIN') && current !== symbol) await this.handleToggleBalance();
         }
+        if (!isCurrent()) return;
+        this.usernameInput.value = paymentData.u || '';
+        this.amountInput.value = paymentData.a || '';
+        this.memoInput.value = paymentData.m || '';
       }
-      if (!this.isCurrentSession(session)) return;
-      if (paymentData.a) {
-        this.amountInput.value = paymentData.a;
-      }
-      if (paymentData.m) {
-        this.memoInput.value = paymentData.m;
-      }
-
-      // Trigger username validation and amount validation
       this.usernameInput.dispatchEvent(new Event('input'));
       this.amountInput.dispatchEvent(new Event('input'));
     } catch (error) {
-      console.error('Error parsing payment QR data:', error, data);
-      showToast('Failed to parse payment QR data.', 0, 'error');
-      // Clear fields on error
-      this.usernameInput.value = '';
-      this.amountInput.value = '';
-      this.memoInput.value = '';
+      if (!isCurrent()) return;
+      showToast(error.message || 'Unable to read the WIN address. Try again.', 0, 'error');
+    } finally {
+      if (this.qrRequest === request) this.qrRequest = null;
     }
-  }  
+  }
 }
 
 const sendAssetFormModal = new SendAssetFormModal();
@@ -34293,6 +34290,10 @@ class SendAssetConfirmModal {
         return;
       }
       toAddress = normalizeAddress(data.address);
+      if (payment.recipientAddress && toAddress !== payment.recipientAddress) {
+        showToast('Recipient address changed. Close this confirmation and review the recipient again.', 0, 'error');
+        return;
+      }
     } catch (error) {
       console.error('Error looking up username:', error);
       showToast('Error looking up username', 0, 'error');
@@ -34533,39 +34534,29 @@ class ReceiveModal {
 
   load() {
     this.modal = document.getElementById('receiveModal');
-    this.amountInput = document.getElementById('receiveAmount');
-    this.memoInput = document.getElementById('receiveMemo');
     this.displayAddress = document.getElementById('displayAddress');
     this.qrcodeContainer = document.getElementById('qrcode');
     this.previewElement = document.getElementById('qrDataPreview');
     this.copyButton = document.getElementById('copyAddress');
-    this.toggleReceiveBalanceButton = document.getElementById('toggleReceiveBalance');
-    this.receiveBalanceSymbol = document.getElementById('receiveBalanceSymbol');
-    this.fullAddress = null; // Store full address for copying
+    this.fullAddress = null;
 
-    // Modal close
     document.getElementById('closeReceiveModal').addEventListener('click', () => this.close());
-    
-    // Copy address functionality
     this.copyButton.addEventListener('click', () => this.copyAddress());
     this.displayAddress.addEventListener('click', () => this.copyAddress());
-    
-    // QR code updates
-    // Preserve the entered decimal text; validation rejects invalid or over-precise amounts.
-    this.amountInput.addEventListener('input', () => this.scheduleQRCode());
-    this.memoInput.addEventListener('input', () => this.scheduleQRCode());
-    this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
   open() {
     if (this.modal.classList.contains('active') || !myAccount) return false;
     this.close();
+    const address = myAccount.keys?.address;
+    if (typeof address !== 'string' || !/^(?:0x)?[a-f0-9]{40}(?:0{24})?$/i.test(address)) {
+      showToast('Your WIN app address is unavailable. Sign in again.', 0, 'error');
+      return false;
+    }
     this.session = { account: myAccount };
-    this.amountInput.value = '';
-    this.memoInput.value = '';
-    this.receiveBalanceSymbol.textContent = 'WIN';
-    this.toggleReceiveBalanceButton.disabled = false;
-    this.updateDisplayAddress();
+    this.fullAddress = longAddress(address.toLowerCase());
+    this.displayAddress.textContent = this.fullAddress;
+    this.updateQRCode();
     if (!openModal(this.modal)) {
       this.close();
       return false;
@@ -34574,177 +34565,42 @@ class ReceiveModal {
   }
 
   isCurrentSession(session) {
-    return Boolean(session && this.session === session);
+    return Boolean(session && this.session === session && myAccount === session.account);
   }
 
   close() {
     this.session = null;
-    clearTimeout(this.qrTimer);
     clearTimeout(this.copyTimer);
     this.modal?.classList.remove('active');
     this.copyButton?.classList.remove('success');
     this.fullAddress = null;
     if (this.displayAddress) this.displayAddress.textContent = '';
-    if (this.qrcodeContainer) this.qrcodeContainer.innerHTML = '';
-  }
-
-  scheduleQRCode() {
-    clearTimeout(this.qrTimer);
-    this.qrTimer = setTimeout(() => this.updateQRCode(), 300);
-  }
-
-  updateDisplayAddress() {
-    // Clear previous QR code
-    this.qrcodeContainer.innerHTML = '';
-
-    const address = this.session.account.keys.address;
-    const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
-    
-    // Store full address for copying
-    this.fullAddress = addressWithPrefix;
-    
-    // Display full address
-    this.displayAddress.textContent = addressWithPrefix;
-
-    // Generate QR code with payment data
-    try {
-      this.updateQRCode();
-    } catch (error) {
-      console.error('Error updating QR code:', error);
-
-      // Fallback to basic address QR code if there's an error
-      new QRCode(this.qrcodeContainer, {
-        text: '0x' + address,
-        width: 200,
-        height: 200,
-      });
-      console.warn('Fallback to basic address QR code');
+    this.qrcodeContainer?.replaceChildren();
+    if (this.previewElement) {
+      this.previewElement.textContent = '';
+      this.previewElement.hidden = true;
     }
   }
 
-  // Create QR payment data object based on form values
-  createQRPaymentData() {
-    const asset = walletScreen.getLibAsset();
-    const paymentData = {
-      u: this.session.account.username,
-      i: asset?.id || 'win',
-      s: asset?.symbol || 'WIN',
-      d: String(this.receiveBalanceSymbol.textContent || 'WIN').toUpperCase(),
-      networkId: network.netid,
-    };
-
-    // Add optional fields if they have values
-    const amount = this.amountInput.value.trim();
-    if (amount) {
-      paymentData.a = WinPayments.formatAtomic(WinPayments.parseAtomic(amount));
-    }
-
-    const memo = this.memoInput.value.trim();
-    if (memo) {
-      paymentData.m = memo;
-    }
-
-    return paymentData;
-  }
-
-  // Update QR code with current payment data
   updateQRCode() {
     if (!this.isCurrentSession(this.session)) return;
-    this.qrcodeContainer.innerHTML = '';
-    this.previewElement.style.display = 'none'; // Hide preview/error area initially
-    this.previewElement.innerHTML = ''; // Clear any previous error message
-
+    this.qrcodeContainer.replaceChildren();
+    this.previewElement.hidden = true;
+    this.previewElement.textContent = '';
     try {
-      // Get payment data
-      const paymentData = this.createQRPaymentData();
-
-      // Convert to JSON and encode as base64
-      const jsonData = JSON.stringify(paymentData);
-      const base64Data = bin2base64(utf82bin(jsonData));
-
-      // Create URI with liberdus:// prefix
-      const qrText = `liberdus://${base64Data}`;
-
-      const gifBytes = qr.encodeQR(qrText, 'gif', { scale: 4 });
-      // Convert the raw bytes to a base64 data URL
-      const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(gifBytes)));
-      const dataUrl = 'data:image/gif;base64,' + base64;
-      // Create an image element and set its source to the data URL
+      // The displayed address, clipboard value and QR payload must be identical.
+      // A four-module quiet zone keeps the code readable by external scanners.
+      const gifBytes = qr.encodeQR(this.fullAddress, 'gif', { scale: 6, border: 4 });
       const img = document.createElement('img');
-      img.src = dataUrl;
-      img.width = 200;
-      img.height = 200;
-      // Add the image to the container
+      img.src = 'data:image/gif;base64,' + bin2base64(new Uint8Array(gifBytes));
+      img.alt = 'QR code for your WIN app address';
+      img.width = 246;
+      img.height = 246;
       this.qrcodeContainer.appendChild(img);
-
-      return qrText;
     } catch (error) {
-      console.error('Error in updateQRCode:', error);
-
-      this.qrcodeContainer.innerHTML = ''; // Clear the container before adding fallback QR
-
-      // Fallback to basic username QR code in liberdus:// format
-      try {
-        // Use short key 'u' for username
-        const fallbackData = { u: this.session.account.username };
-        const fallbackJsonData = JSON.stringify(fallbackData);
-        const fallbackBase64Data = btoa(fallbackJsonData);
-        const fallbackQrText = `liberdus://${fallbackBase64Data}`;
-
-        const gifBytes = qr.encodeQR(fallbackQrText, 'gif', { scale: 4 });
-        // Convert the raw bytes to a base64 data URL
-        const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(gifBytes)));
-        const dataUrl = 'data:image/gif;base64,' + base64;
-        // Create an image element and set its source to the data URL
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.width = 200;
-        img.height = 200;
-        // Add the image to the container
-        this.qrcodeContainer.appendChild(img);
-
-        console.error('Error generating full QR', error);
-
-        // Show error directly in the preview element
-        if (this.previewElement) {
-          this.previewElement.innerHTML = `<span style="color: red;">Error generating full QR</span><br> Generating QR with only username. <br> Username: ${myAccount.username}`;
-          this.previewElement.style.display = 'block'; // Make the error visible
-        }
-      } catch (fallbackError) {
-        console.error('Error generating fallback QR code:', fallbackError);
-        this.qrcodeContainer.innerHTML = '<p style="color: red; text-align: center;">Failed to generate QR code.</p>';
-      }
-    }
-  }
-
-  /**
-   * Toggle WIN/USD display for the receive amount and update the QR accordingly
-   */
-  async handleToggleBalance() {
-    const session = this.session;
-    if (!this.isCurrentSession(session)) return;
-    this.toggleReceiveBalanceButton.disabled = true;
-    try {
-      const asset = walletScreen.getLibAsset();
-      const tokenSymbol = asset?.symbol || 'WIN';
-      const isShowingToken = this.receiveBalanceSymbol.textContent !== 'USD';
-      await getNetworkParams();
-      if (!this.isCurrentSession(session)) return;
-      const conversionPrice = parameters?.current?.stabilityFactorStr;
-      if (!conversionPrice) {
-        showToast(`${tokenSymbol}/USD price is unavailable`, 2500, 'warning');
-        return;
-      }
-      const amount = this.amountInput.value.trim();
-      const converted = amount ? WinPayments.convertAmount(amount, conversionPrice, isShowingToken) : '';
-      this.receiveBalanceSymbol.textContent = isShowingToken ? 'USD' : tokenSymbol;
-      this.amountInput.value = converted;
-
-      this.updateQRCode();
-    } catch (err) {
-      console.error('Error toggling receive balance:', err);
-    } finally {
-      if (this.isCurrentSession(session)) this.toggleReceiveBalanceButton.disabled = false;
+      console.error('Unable to generate WIN address QR:', error);
+      this.previewElement.textContent = 'QR code unavailable. You can copy your address instead.';
+      this.previewElement.hidden = false;
     }
   }
 

@@ -34,6 +34,16 @@ export function createMetaMask({ host = globalThis.window, onChange = () => {} }
       throw new Error('Open this site in MetaMask’s browser or install the MetaMask extension, then connect again.');
     disconnect();
     const token = generation;
+    // Re-request account permission on explicit connect/change-account clicks so
+    // MetaMask opens its picker even when this site already has permission.
+    try {
+      await selected.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+    } catch (error) {
+      if (error.code === -32601 || error.code === 4200)
+        throw new Error('Update MetaMask to choose an account when connecting.');
+      throw error;
+    }
+    if (token !== generation) throw new Error('Connection canceled. Connect again.');
     const accounts = await selected.request({ method: 'eth_requestAccounts' });
     const address = normalize(accounts?.[0]);
     if (BigInt(await selected.request({ method: 'eth_chainId' })) !== 56n) {

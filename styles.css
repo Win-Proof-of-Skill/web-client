@@ -6150,6 +6150,23 @@ input[type='file'].form-control {
   max-width: 100%;
 }
 
+#qrcode {
+  background: #fff;
+  max-width: 100%;
+  padding: 0;
+}
+
+#qrcode img {
+  width: 246px;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+#receiveModal .address-display {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 #availableBalance {
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);

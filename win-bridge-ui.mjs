@@ -34,7 +34,7 @@ export function createBridgeUI(api) {
     const field = document.getElementById('winMetaMaskAddress');
     if (field) field.textContent = address || 'No wallet connected';
     const connect = document.querySelector('[data-win-connect-metamask]');
-    if (connect) connect.textContent = address ? 'Reconnect MetaMask' : 'Connect MetaMask';
+    if (connect) connect.textContent = address ? 'Change account' : 'Connect MetaMask';
     const disconnect = document.querySelector('[data-win-disconnect-metamask]');
     if (disconnect) disconnect.hidden = !address;
   }
@@ -252,10 +252,13 @@ export function createBridgeUI(api) {
     const form = e.target;
     if (form.dataset.winRecover) {
       e.preventDefault();
+      // Disabled controls are omitted from FormData, so capture before guard locks the form.
+      const value = new FormData(form).get('hash');
+      const hash = typeof value === 'string' ? value.trim() : '';
       void guard(async () => {
         const op = operations().find((o) => o.localId === form.dataset.winRecover);
         if (!op) throw new Error('Transfer is unavailable.');
-        await recoverMetaMaskTransaction(op, form.dataset.step, new FormData(form).get('hash').trim(), api);
+        await recoverMetaMaskTransaction(op, form.dataset.step, hash, api);
         renderHistory();
         await progress(op);
       });
