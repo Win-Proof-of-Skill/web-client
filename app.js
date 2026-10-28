@@ -9,7 +9,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ag'; // Also increment this when you increment version.html
+const version = 'ah'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -61,6 +61,7 @@ async function checkVersion() {
       'win-payments.js',
       'win-theme.css',
       'win-workspace.mjs',
+      'win-contract-periods.mjs',
       'win-domain.mjs',
       'win-security.mjs',
       'win-features.mjs',
@@ -27424,7 +27425,6 @@ class ChatModal {
     sendAssetFormModal.retryTxIdInput.value = txid || '';
 
     // Memo
-    sendAssetFormModal.memoInput.value = memo || '';
 
     // Recipient username (best-effort from contacts)
     sendAssetFormModal.usernameInput.value = myData.contacts[address]?.username || '';
@@ -33307,7 +33307,6 @@ class SendAssetFormModal {
     this.foundAddressObject = { address: null };
     this.needTollInfo = false;
     this.tollInfo = {};
-    this.memoValidation = {}
   }
 
   /**
@@ -33320,21 +33319,16 @@ class SendAssetFormModal {
     this.sendForm = document.getElementById('sendForm');
     this.usernameInput = document.getElementById('sendToAddress');
     this.amountInput = document.getElementById('sendAmount');
-    this.memoInput = document.getElementById('sendMemo');
-    this.memoGroup = document.getElementById('sendMemoGroup');
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
-    this.tollMemoSpan = document.getElementById('tollMemo');
     // Add balance element references
     this.balanceAmount = document.getElementById('balanceAmount');
     this.transactionFee = document.getElementById('transactionFee');
     this.balanceWarning = document.getElementById('balanceWarning');
-    this.memoLabel = document.querySelector('label[for="sendMemo"]');
-    this.memoByteCounter = this.memoGroup.querySelector('.memo-byte-counter');
 
     // TODO add comment about which send form this is for chat or assets
     this.closeSendAssetFormModalButton.addEventListener('click', this.close.bind(this));
@@ -33368,7 +33362,6 @@ class SendAssetFormModal {
     this.amountInput.addEventListener('focus', this.handleAmountFocus.bind(this));
     // event listener for toggle WIN/USD button
     this.toggleBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
-    this.memoInput.addEventListener('input', this.handleMemoInputChange.bind(this));
 
     //QR scanning
     this.scanQRButton = document.getElementById('scanQRButton');
@@ -33386,10 +33379,6 @@ class SendAssetFormModal {
   async open() {
     if (this.isActive()) return false;
     this.reset();
-    this.memoInput.setCustomValidity('');
-    this.memoValidation = this.validateMemoSize('');
-    this.memoByteCounter.textContent = '';
-    this.memoByteCounter.style.display = 'none';
     this.usernameAvailable.style.display = 'none';
     this.balanceWarning.textContent = '';
     this.balanceWarning.style.display = 'none';
@@ -33452,7 +33441,6 @@ class SendAssetFormModal {
     this.needTollInfo = false;
     this.tollInfo = {};
     this.sendForm?.reset();
-    if (this.tollMemoSpan) this.tollMemoSpan.textContent = '';
     this.modal?.classList.remove('active');
   }
 
@@ -33489,7 +33477,6 @@ class SendAssetFormModal {
     }
 
     if (isValidEthereumAddress(rawInput)) {
-      this.clearFormInfo();
       this.usernameAvailable.textContent = 'address not supported';
       this.usernameAvailable.style.color = '#dc3545';
       this.usernameAvailable.style.display = 'inline';
@@ -33502,7 +33489,6 @@ class SendAssetFormModal {
     e.target.value = username;
     const usernameAvailable = this.usernameAvailable;
 
-    this.clearFormInfo();
 
     // Check if username is too short
     if (username.length < 3) {
@@ -33580,93 +33566,7 @@ class SendAssetFormModal {
       this.needTollInfo = false;
     }
 
-    // memo byte size validation
-    const memoText = this.memoInput.value;
-    this.memoValidation = this.validateMemoSize(memoText);
-    this.updateMemoByteCounter(this.memoValidation);
-
-    if (this.tollInfo.required !== undefined && this.tollInfo.toll !== undefined) {
-      // build string to display under memo input. with lib amoutn and (usd amount)
-      /* const tollInfoString = `Toll:  */
-      this.updateMemoTollUI();
-      this.refreshSendButtonDisabledState();
-    }
-  }
-
-  /**
-   * validateMemoSize
-   * @param {string} text - The text to validate
-   * @returns {object} - The validation object
-   */
-  validateMemoSize(text) {
-    const maxBytes = MAX_MEMO_BYTES;
-    const byteSize = new Blob([text]).size;
-    return {
-      isValid: byteSize <= maxBytes,
-      currentBytes: byteSize,
-      remainingBytes: maxBytes - byteSize,
-      percentage: (byteSize / maxBytes) * 100,
-      maxBytes: maxBytes
-    };
-  }
-
-  updateMemoByteCounter(validation) {
-    // Only show counter when at 90% or higher
-    if (validation.percentage >= 90) {
-      
-      if (validation.percentage > 100) {
-        this.memoByteCounter.style.color = '#dc3545';
-        this.memoByteCounter.textContent = `${validation.currentBytes - validation.maxBytes} bytes - over limit`;
-      } else if (validation.percentage >= 90) {
-        this.memoByteCounter.style.color = '#ffa726';
-        this.memoByteCounter.textContent = `${validation.remainingBytes} bytes - left`;
-      }
-      this.memoByteCounter.style.display = 'inline';
-    } else {
-      this.memoByteCounter.style.display = 'none';
-    }
-  }
-  /**
-   * updateTollAmountUI
-   */
-  updateMemoTollUI() {
-    this.tollMemoSpan.style.color = 'black';
-    const toll = this.tollInfo.toll || 0n;
-    const factor = getStabilityFactor();
-    const tollInLibWei = normalizeTollToLibWei(toll, this.tollInfo.tollUnit);
-    const effectiveTollLibWei = getEffectiveTollLibWei(tollInLibWei);
-    const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
-    const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} WIN)`;
-    let display;
-    if (this.tollInfo.required == 1) {
-      display = `${usdString}`;
-      if (this.memoInput.value.trim() == '') {
-        display = '';
-      }
-    } else if (this.tollInfo.required == 2) {
-      this.tollMemoSpan.style.color = 'red';
-      display = `blocked`;
-    } else {
-      // light green used to show success
-      this.tollMemoSpan.style.color = '#28a745';
-      display = `free; ${usdString}`;
-    }
-    //display the container
-    if (display != '') {
-      // want only the word "Toll:" to be black and bold
-      display = '<span style="color: black;">Toll:</span> ' + display;
-    }
-    this.tollMemoSpan.innerHTML = display;
-  }
-
-  clearFormInfo() {
-    this.tollMemoSpan.textContent = '';
-  }
-
-  handleMemoInputChange() {
-    if (this.foundAddressObject.address) {
-      this.validateForm();
-    }
+    this.refreshSendButtonDisabledState();
   }
 
   /**
@@ -33731,7 +33631,7 @@ class SendAssetFormModal {
     const amountText = this.amountInput.value.trim();
     const amountUnit = this.balanceSymbol.textContent;
     const username = this.usernameInput.value.trim();
-    const memo = this.memoInput.value.trim();
+    const memo = '';
     const amountWei = this.getAmountWei();
     if (amountWei === null) {
       showToast('Unable to calculate the WIN amount. Check the amount and WIN/USD price.', 3000, 'warning');
@@ -33743,7 +33643,7 @@ class SendAssetFormModal {
     const hasBalance = await validateBalance(amountWei, assetIndex, warning, getPaymentFeeWei(amountWei));
     if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
       || this.amountInput.value.trim() !== amountText || this.balanceSymbol.textContent !== amountUnit
-      || this.usernameInput.value.trim() !== username || this.memoInput.value.trim() !== memo) return;
+      || this.usernameInput.value.trim() !== username) return;
     this.balanceWarning.textContent = warning.textContent;
     this.balanceWarning.style.display = warning.style.display;
     if (!hasBalance || !this.validateToll(amountWei)) return;
@@ -33940,37 +33840,15 @@ class SendAssetFormModal {
       }
     }
     // Enable button only if both conditions are met.
-    if (!this.needTollInfo && isAddressConsideredValid && isAmountAndBalanceValid && isAmountAndTollValid && this.memoValidation.isValid) {
+    if (!this.needTollInfo && isAddressConsideredValid && isAmountAndBalanceValid && isAmountAndTollValid) {
       this.submitButton.disabled = false;
     } else {
       this.submitButton.disabled = true;
     }
   }
 
-  validateToll(amount) {
-    // check if user is required to pay a toll
-    if (this.tollInfo.required == 1) {
-      if (this.memoInput.value.trim() != '') {
-        const toll = typeof this.tollInfo.toll === 'bigint' ? this.tollInfo.toll : 0n;
-        if (toll === 0n) return true;
-        const tollWei = SendAssetFormModal.toLibWei(EthNum.toStr(toll), this.tollInfo.tollUnit || 'WIN');
-        if (tollWei === null) {
-          this.balanceWarning.textContent = 'Unable to calculate the memo toll.';
-          this.balanceWarning.style.display = 'inline';
-          return false;
-        }
-        const tollInLIB = getEffectiveTollLibWei(tollWei);
-        if (tollInLIB > amount) {
-          this.balanceWarning.textContent = 'less than toll for memo';
-          this.balanceWarning.style.display = 'inline';
-          return false;
-        }
-      }
-    }
-    if (this.tollInfo.required == 2) {
-      return false;
-    }
-    return true;
+  validateToll() {
+    return this.tollInfo.required != 2;
   }
 
   /**
@@ -34053,13 +33931,11 @@ class SendAssetFormModal {
     const tempUsername = this.usernameInput?.value;
     const tempAmount = this.amountInput?.value;
     const tempUnit = this.balanceSymbol.textContent;
-    const tempMemo = this.memoInput?.value;
     await this.close();
     this.username = tempUsername;
     if (!await this.open()) return;
     this.amountInput.value = tempAmount;
     this.balanceSymbol.textContent = tempUnit;
-    this.memoInput.value = tempMemo || '';
     await this.updateAvailableBalance();
     if (this.foundAddressObject.address && !this.needTollInfo) await this.validateForm();
   }
@@ -34118,7 +33994,6 @@ class SendAssetFormModal {
     this.qrRecipient = null;
     this.usernameInput.value = '';
     this.amountInput.value = '';
-    this.memoInput.value = '';
     // Invalidate previous recipient lookups before resolving this QR.
     this.usernameInput.dispatchEvent(new Event('input'));
     this.amountInput.dispatchEvent(new Event('input'));
@@ -34152,7 +34027,6 @@ class SendAssetFormModal {
         if (!isCurrent()) return;
         this.usernameInput.value = paymentData.u || '';
         this.amountInput.value = paymentData.a || '';
-        this.memoInput.value = paymentData.m || '';
       }
       this.usernameInput.dispatchEvent(new Event('input'));
       this.amountInput.dispatchEvent(new Event('input'));
@@ -34503,7 +34377,6 @@ class SendAssetConfirmModal {
       this.close();
       sendAssetFormModal.usernameInput.value = '';
       sendAssetFormModal.amountInput.value = '';
-      sendAssetFormModal.memoInput.value = '';
       sendAssetFormModal.usernameAvailable.style.display = 'none';
 
       // Show history modal after successful transaction
@@ -34894,9 +34767,6 @@ class FailedTransactionModal {
   
       // 1. fill in hidden retryOfPaymentTxId input
       retryOfPaymentTxId.value = this.txid;
-  
-      // 2. fill in the memo input
-      sendAssetFormModal.memoInput.value = this.memo || '';
   
       // 3. fill in the to address input
       // find username in myData.contacts[this.address].senderInfo.username

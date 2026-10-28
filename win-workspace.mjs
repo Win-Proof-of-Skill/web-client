@@ -1,11 +1,6 @@
+import { fullContractMonths, contractPeriods } from './win-contract-periods.mjs';
 import { assertWinResponse } from './win-security.mjs';
-import {
-  controls,
-  formatUnits,
-  isId,
-  profileContent,
-  contractContent,
-} from './win-domain.mjs';
+import { controls, formatUnits, isId, profileContent, contractContent } from './win-domain.mjs';
 const escape = (value) =>
   String(value ?? '').replace(
     /[&<>"']/g,
@@ -13,9 +8,7 @@ const escape = (value) =>
   );
 const short = (value) => (value ? `${value.slice(0, 10)}…${value.slice(-6)}` : '—');
 const date = (value) =>
-  value
-    ? new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-    : '—';
+  value ? new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 const score = (value) => (value == null ? 'Unavailable' : formatUnits(value, 6));
 const button = (action, label, id = '', secondary = false) =>
   `<button type="button" class="win-button${
@@ -29,10 +22,7 @@ const area = (name, label, value = '', attrs = '') =>
   )}</textarea></label>`;
 const select = (name, label, entries, value, attrs = '') =>
   `<label class="win-field">${label}<select name="${name}" ${attrs}>${entries
-    .map(
-      ([id, text]) =>
-        `<option value="${escape(id)}" ${value === id ? 'selected' : ''}>${escape(text)}</option>`
-    )
+    .map(([id, text]) => `<option value="${escape(id)}" ${value === id ? 'selected' : ''}>${escape(text)}</option>`)
     .join('')}</select></label>`;
 const badge = (value) => `<span class="win-badge">${escape(String(value || '').replaceAll('_', ' '))}</span>`;
 const empty = (title, text, action = '') =>
@@ -83,8 +73,7 @@ export function createWinWorkspace(api) {
     let next = '';
     do {
       const page = await read(`/${kind}?limit=100${query}${next ? '&cursor=' + next : ''}`);
-      if (!Array.isArray(page.records))
-        throw new Error('Update the WIN server to enable the profile directory.');
+      if (!Array.isArray(page.records)) throw new Error('Update the WIN server to enable the profile directory.');
       records.push(...page.records);
       next = page.nextCursor;
       if (records.length > 10000) throw new Error('Directory is too large. Use a narrower search.');
@@ -158,15 +147,10 @@ export function createWinWorkspace(api) {
         result.status === 'confirmed'
           ? 'The network has confirmed your signature.'
           : 'The transaction has been accepted for processing. Refresh to check the committed record before trying again.'
-      }</p><p class="win-address">${escape(result.txId)}</p>${button(
-        'refresh-close',
-        'Back to workspace'
-      )}</div>`
+      }</p><p class="win-address">${escape(result.txId)}</p>${button('refresh-close', 'Back to workspace')}</div>`
     );
     note(
-      result.status === 'confirmed'
-        ? 'Transaction confirmed.'
-        : 'Transaction submitted. Confirmation is still pending.'
+      result.status === 'confirmed' ? 'Transaction confirmed.' : 'Transaction submitted. Confirmation is still pending.'
     );
   }
   async function profileList(append = false) {
@@ -262,9 +246,7 @@ export function createWinWorkspace(api) {
         .filter(([key]) => !['headline', 'firstName', 'lastName', 'skills'].includes(key))
         .map(
           ([key, value]) =>
-            `<h3>${escape(key.replace(/([A-Z])/g, ' $1'))}</h3><p class="win-prose">${escape(
-              allText(value)
-            )}</p>`
+            `<h3>${escape(key.replace(/([A-Z])/g, ' $1'))}</h3><p class="win-prose">${escape(allText(value))}</p>`
         )
         .join('')}${
         p.contact ? `<h3>Contact</h3><p class="win-prose">${escape(allText(p.contact))}</p>` : ''
@@ -272,14 +254,9 @@ export function createWinWorkspace(api) {
         work
           .map(
             (c) =>
-              `<div class="win-row"><div><strong>${escape(c.title)}</strong><p>${escape(
-                c.workStatus
-              )} · ${escape(c.effectiveApprovalStatus)}</p></div>${button(
-                'contract',
-                'Review',
-                c.id,
-                true
-              )}</div>`
+              `<div class="win-row"><div><strong>${escape(c.title)}</strong><p>${escape(c.workStatus)} · ${escape(
+                c.effectiveApprovalStatus
+              )}</p></div>${button('contract', 'Review', c.id, true)}</div>`
           )
           .join('') || '<p>No contracts yet.</p>'
       }<h3>Skill endorsements</h3><p class="win-help">Endorsements are signed attestations. The proof score currently reflects the network’s contract-outcome rules.</p>${
@@ -289,16 +266,14 @@ export function createWinWorkspace(api) {
             (e) =>
               `<div class="win-endorsement"><strong>${escape(skillName(e.skillId))}</strong> ${badge(
                 e.effectiveStatus
-              )}<p class="win-prose">${escape(e.statement)}</p><small>${escape(
-                e.relationship
-              )} · Valid until ${date(e.validUntil)}</small><p class="win-address">Signed by ${escape(
-                e.endorserProfileId
-              )}</p></div>`
+              )}<p class="win-prose">${escape(e.statement)}</p><small>${escape(e.relationship)} · Valid until ${date(
+                e.validUntil
+              )}</small><p class="win-address">Signed by ${escape(e.endorserProfileId)}</p></div>`
           )
           .join('') || '<p>No endorsements yet.</p>'
-      }<h3>Public identity</h3><p class="win-address">${escape(p.id)}</p><p class="win-help">Revision ${
-        escape(p.revision)
-      } · Updated ${date(p.updatedAt)}</p>`
+      }<h3>Public identity</h3><p class="win-address">${escape(p.id)}</p><p class="win-help">Revision ${escape(
+        p.revision
+      )} · Updated ${date(p.updatedAt)}</p>`
     );
   }
   async function profileForm(record = null) {
@@ -319,12 +294,7 @@ export function createWinWorkspace(api) {
           ]),
           p.type,
           record ? 'disabled' : ''
-        )}${input(
-          'displayName',
-          'Display name',
-          p.displayName,
-          'required maxlength="250" autocomplete="name"'
-        )}${input(
+        )}${input('displayName', 'Display name', p.displayName, 'required maxlength="250" autocomplete="name"')}${input(
           'headline',
           'Professional title / industry',
           p.details.headline || p.details.industry,
@@ -356,8 +326,7 @@ export function createWinWorkspace(api) {
                   selected.has(s.id) ? 'checked' : ''
                 }>${escape(s.name)}</label>`
             )
-            .join('') ||
-          '<p>No skills registered yet. Save your profile, then register a skill from the directory.</p>'
+            .join('') || '<p>No skills registered yet. Save your profile, then register a skill from the directory.</p>'
         }</div></fieldset>`
       )
     );
@@ -409,9 +378,7 @@ export function createWinWorkspace(api) {
     const initial = session();
     const values = await Promise.all(owned.map((p) => all('contracts', '&profileId=' + p.id)));
     if (!sameSession(initial)) return;
-    contracts = [...new Map(values.flat().map((c) => [c.id, c])).values()].sort(
-      (a, b) => b.updatedAt - a.updatedAt
-    );
+    contracts = [...new Map(values.flat().map((c) => [c.id, c])).values()].sort((a, b) => b.updatedAt - a.updatedAt);
     document.getElementById('winContracts').innerHTML = contracts.length
       ? contracts
           .map(
@@ -420,9 +387,9 @@ export function createWinWorkspace(api) {
                 c.effectiveApprovalStatus
               )}<small>${date(c.updatedAt)}</small></div><h3>${escape(c.title)}</h3><p>${escape(
                 c.publicDescription || 'Work agreement'
-              )}</p><div class="win-tags"><span>${escape(c.workStatus)}</span><span>${
-                escape(c.terms.durationMonths)
-              } months</span><span>${c.approvals.length}/${
+              )}</p><div class="win-tags"><span>${escape(c.workStatus)}</span><span>${escape(
+                c.terms.durationMonths
+              )} months</span><span>${c.approvals.length}/${
                 c.hiringProfileIds.length
               } approvals</span></div><div class="win-card-bottom"><small>${
                 c.workerProfileId && owned.some((p) => p.id === c.workerProfileId)
@@ -437,21 +404,57 @@ export function createWinWorkspace(api) {
           button('create-contract', '+ Create contract')
         );
   }
+  function updateContractFields() {
+    const f = dialog.querySelector('[data-win-form="contract"]');
+    if (!f) return;
+    const field = (name) => f.elements.namedItem(name);
+    const duration = field('durationMonths'),
+      outcomes = field('periodOutcomes');
+    duration.readOnly = field('durationMode').value === 'dates';
+    if (duration.readOnly) {
+      try {
+        duration.value = fullContractMonths(field('startDate').value, field('endDate').value) || '';
+      } catch {
+        duration.value = '';
+      }
+    }
+    const status = field('workStatus').value;
+    const automatic = status === 'completed' || status === 'planned';
+    if (automatic && !outcomes.readOnly) outcomes.dataset.manual = outcomes.value;
+    if (!automatic && outcomes.readOnly) outcomes.value = outcomes.dataset.manual || '';
+    outcomes.readOnly = automatic;
+    outcomes.required = ['canceled', 'disputed'].includes(status);
+    if (automatic) {
+      const months = Number(duration.value);
+      outcomes.value =
+        status === 'completed' && Number.isInteger(months) && months > 0 && months <= 1200
+          ? Array.from({ length: months }, (_, i) => `${i + 1}, success`).join('\n')
+          : '';
+    }
+  }
+  for (const eventName of ['input', 'change'])
+    dialog.addEventListener(eventName, (event) => {
+      if (['startDate', 'endDate', 'durationMonths', 'durationMode', 'workStatus'].includes(event.target.name))
+        updateContractFields();
+    });
   async function contractForm(record = null) {
     await loadIdentity();
     if (!owned.length) throw new Error('Create a profile before creating a contract.');
     editing = record;
     const c = record || { terms: {}, hiringProfileIds: [], skillIds: [], periodOutcomes: [] };
+    let durationMode = 'dates';
+    if (record) {
+      try {
+        if (fullContractMonths(c.terms.startDate, c.terms.endDate) !== c.terms.durationMonths) durationMode = 'manual';
+      } catch {
+        durationMode = 'manual';
+      }
+    }
     modal(
       record ? 'Edit contract' : 'Create a work contract',
       form(
         'contract',
-        `<div class="win-form-grid">${input(
-          'title',
-          'Contract title',
-          c.title,
-          'required maxlength="250"'
-        )}${select(
+        `<div class="win-form-grid">${input('title', 'Contract title', c.title, 'required maxlength="250"')}${select(
           'workerProfileId',
           'Your worker profile',
           owned.map((p) => [p.id, p.displayName]),
@@ -476,6 +479,14 @@ export function createWinWorkspace(api) {
           'End date',
           c.terms.endDate,
           'type="date"'
+        )}${select(
+          'durationMode',
+          'Calculate duration',
+          [
+            ['dates', 'From start and end dates'],
+            ['manual', 'Enter months manually'],
+          ],
+          durationMode
         )}${input(
           'durationMonths',
           'Duration in months',
@@ -530,11 +541,13 @@ export function createWinWorkspace(api) {
           'Completed months: month number, success or failure',
           c.periodOutcomes.map((p) => `${p.month}, ${p.outcome}`).join('\n'),
           'placeholder="1, success\n2, success"'
-        )}<p class="win-help">Only finished calendar months may be attested. Completed contracts require an end date and an outcome for every month.</p>`
+        )}<p class="win-help">Duration counts full calendar months. Completed contracts automatically mark every month successful. Canceled or disputed contracts require month outcomes; enter “none” if no months were completed. Only finished months may be attested.</p>`
       )
     );
+    updateContractFields();
   }
   async function contractSubmit(data) {
+    const periods = contractPeriods(data);
     const lines = (value) =>
       value
         .split(/\n/)
@@ -555,21 +568,14 @@ export function createWinWorkspace(api) {
     c.terms = {
       ...c.terms,
       startDate: data.get('startDate'),
-      durationMonths: Number(data.get('durationMonths')),
+      durationMonths: periods.durationMonths,
       workMode: data.get('workMode'),
       responsibilities: lines(data.get('responsibilities')),
       acceptanceCriteria: lines(data.get('acceptanceCriteria')),
     };
     if (data.get('endDate')) c.terms.endDate = data.get('endDate');
     else delete c.terms.endDate;
-    c.periodOutcomes = lines(data.get('periodOutcomes')).map((line) => {
-      const match = line.match(/^(\d+)\s*,\s*(success|failure)$/);
-      if (!match)
-        throw new Error(
-          'Enter each outcome as a month number followed by success or failure, e.g. 1, success.'
-        );
-      return { month: Number(match[1]), outcome: match[2] };
-    });
+    c.periodOutcomes = periods.periodOutcomes;
     if (data.get('amount')) {
       if (!/^(0|[1-9]\d*)(\.\d{1,18})?$/.test(data.get('amount')))
         throw new Error('Enter an exact compensation amount with up to 18 decimals.');
@@ -680,10 +686,7 @@ export function createWinWorkspace(api) {
         )}${select('skillId', 'Skill', options, options[0][0])}${select(
           'relationship',
           'Your working relationship',
-          ['employer', 'colleague', 'client', 'teacher', 'mentor', 'collaborator', 'other'].map((x) => [
-            x,
-            x,
-          ]),
+          ['employer', 'colleague', 'client', 'teacher', 'mentor', 'collaborator', 'other'].map((x) => [x, x]),
           'colleague'
         )}${area('statement', 'What can you attest to?', '', 'required')}${input(
           'durationMonths',
@@ -732,12 +735,12 @@ export function createWinWorkspace(api) {
         'Register a skill',
         form(
           'skill',
-          `${input(
-            'name',
-            'Skill name',
+          `${input('name', 'Skill name', '', 'required maxlength="250" placeholder="e.g. Product design"')}${input(
+            'category',
+            'Category',
             '',
-            'required maxlength="250" placeholder="e.g. Product design"'
-          )}${input('category', 'Category', '', 'maxlength="250"')}${select(
+            'maxlength="250"'
+          )}${select(
             'kind',
             'Kind',
             ['technical', 'interpersonal', 'language', 'other'].map((x) => [x, x]),
@@ -761,9 +764,7 @@ export function createWinWorkspace(api) {
       await fn();
     } catch (error) {
       const message =
-        error.code === 4001
-          ? 'You canceled the wallet request. No new transaction was submitted.'
-          : error.message;
+        error.code === 4001 ? 'You canceled the wallet request. No new transaction was submitted.' : error.message;
       if (dialog.open) dialog.querySelector('.win-dialog-error').textContent = message;
       note(message, true);
     } finally {
@@ -789,8 +790,7 @@ export function createWinWorkspace(api) {
       else if (f.dataset.winForm === 'contract') await contractSubmit(data);
       else if (f.dataset.winForm === 'approval') {
         const action = data.get('decision');
-        if (action === 'reject' && !data.get('reason').trim())
-          throw new Error('Enter a reason for rejection.');
+        if (action === 'reject' && !data.get('reason').trim()) throw new Error('Enter a reason for rejection.');
         await review('contract', action, editing, undefined, {
           hiringProfileId: data.get('hiringProfileId'),
           requestHash: editing.approvalRequest.hash,
@@ -803,7 +803,7 @@ export function createWinWorkspace(api) {
           skillId: data.get('skillId'),
           relationship: data.get('relationship'),
           statement: data.get('statement').trim(),
-          durationMonths: Number(data.get('durationMonths')),
+          durationMonths: periods.durationMonths,
         });
       else if (f.dataset.winForm === 'skill')
         await review('skill', 'create', null, {
@@ -854,9 +854,7 @@ export function createWinWorkspace(api) {
     const b = event.target.closest('[data-pick-profile]');
     if (!b) return;
     const field = dialog.querySelector('[name="hiringProfileIds"]');
-    field.value = [...new Set([...field.value.split('\n').filter(Boolean), b.dataset.pickProfile])].join(
-      '\n'
-    );
+    field.value = [...new Set([...field.value.split('\n').filter(Boolean), b.dataset.pickProfile])].join('\n');
     b.textContent = 'Added ✓';
   });
   async function open(view) {
@@ -882,11 +880,7 @@ export function createWinWorkspace(api) {
     } catch (error) {
       if (!sameSession(initial)) return;
       note(error.message, true);
-      target.innerHTML = empty(
-        'Unable to load network records',
-        escape(error.message),
-        button('refresh', 'Try again')
-      );
+      target.innerHTML = empty('Unable to load network records', escape(error.message), button('refresh', 'Try again'));
     }
   }
   return {
