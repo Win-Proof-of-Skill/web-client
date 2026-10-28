@@ -1312,3 +1312,7 @@ code {
   border: 1px solid var(--win-line);
   border-radius: 12px;
 }
+
+.win-contacts-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; }
+.win-contacts-heading h2 { margin: 0; }
+#winAddContact { font-size: 1.5rem; min-width: 44px; min-height: 44px; }

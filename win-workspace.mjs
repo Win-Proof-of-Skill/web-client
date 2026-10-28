@@ -1,3 +1,6 @@
+import { loadNetworkStatistics, renderStatistics } from './win-statistics.mjs';
+import { winRouteHash } from './win-navigation.mjs';
+import { CONTRACT_TYPES, contractType, allowsStudentContract, cvSections } from './win-contract-types.mjs';
 import { fullContractMonths, contractPeriods } from './win-contract-periods.mjs';
 import { assertWinResponse } from './win-security.mjs';
 import { controls, formatUnits, isId, profileContent, contractContent } from './win-domain.mjs';
@@ -10,10 +13,13 @@ const short = (value) => (value ? `${value.slice(0, 10)}…${value.slice(-6)}` :
 const date = (value) =>
   value ? new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 const score = (value) => (value == null ? 'Unavailable' : formatUnits(value, 6));
-const button = (action, label, id = '', secondary = false) =>
-  `<button type="button" class="win-button${
+const button = (action, label, id = '', secondary = false) => {
+  const tag = ['profile', 'contract'].includes(action) ? 'a' : 'button';
+  const attrs = tag === 'a' ? `href="${winRouteHash(action, id)}"` : 'type="button"';
+  return `<${tag} ${attrs} class="win-button${
     secondary ? ' secondary' : ''
-  }" data-win-action="${action}" data-id="${escape(id)}">${label}</button>`;
+  }" data-win-action="${action}" data-id="${escape(id)}">${label}</${tag}>`;
+};
 const input = (name, label, value = '', attrs = '') =>
   `<label class="win-field">${label}<input name="${name}" value="${escape(value)}" ${attrs}></label>`;
 const area = (name, label, value = '', attrs = '') =>
@@ -46,7 +52,15 @@ export function createWinWorkspace(api) {
     generation = 0,
     editing = null,
     context = null,
-    busy = false;
+    busy = false,
+    currentView = 'profiles',
+    activeRecordId = null,
+    pageGeneration = 0,
+    pageRecord = null,
+    pageContext = null,
+    contractScope = 'public',
+    contractCursor = null,
+    contractGeneration = 0;
   const dialog = document.getElementById('winDialog');
   const body = dialog.querySelector('.win-dialog-body');
   const status = document.getElementById('winStatus');
@@ -98,21 +112,27 @@ export function createWinWorkspace(api) {
   function closeModal() {
     if (!busy) {
       dialog.close();
-      editing = null;
-      context = null;
+      editing = pageRecord;
+      context = pageContext;
     }
   }
   dialog.querySelector('[data-close]').addEventListener('click', closeModal);
   dialog.addEventListener('cancel', (event) => {
     if (busy) event.preventDefault();
+    else {
+      editing = pageRecord;
+      context = pageContext;
+    }
   });
   function form(kind, contents, label = 'Review & sign') {
     return `<form data-win-form="${kind}">${contents}<p class="win-help">Published profile and work records are public. A native WIN network fee applies.</p><div class="win-form-footer"><button class="win-button" type="submit">${label}</button></div></form>`;
   }
   async function review(type, action, record, payload, extra = {}) {
-    const initial = session();
+    const initial = session(),
+      token = pageGeneration;
     const prepared = await api.prepare(type, action, record, payload, extra);
-    if (!sameSession(initial)) throw new Error('Wallet changed. Review the action again.');
+    if (!sameSession(initial) || token !== pageGeneration)
+      throw new Error('Page or wallet changed. Review the action again.');
     const summary = `${action.replaceAll('_', ' ')} ${type}`;
     context = { prepared, initial };
     modal(
@@ -137,8 +157,9 @@ export function createWinWorkspace(api) {
     const pending = context;
     if (!pending?.prepared || !sameSession(pending.initial))
       throw new Error('Wallet changed. Review the action again.');
+    const token = pageGeneration;
     const result = await api.submit(pending.prepared);
-    if (!sameSession(pending.initial)) return;
+    if (!sameSession(pending.initial) || token !== pageGeneration) return;
     modal(
       result.status === 'confirmed' ? 'Confirmed on WIN' : 'Submitted to WIN',
       `<div class="win-review"><h3>${
@@ -200,19 +221,27 @@ export function createWinWorkspace(api) {
           button('create-profile', '+ Create profile')
         );
   }
+  function recordPage(view, title, html) {
+    const target = document.getElementById(view === 'profile' ? 'winProfilePage' : 'winContractPage');
+    document.title = `${title} · WIN`;
+    target.innerHTML = `${
+      view === 'profile' ? '<div class="win-profile-cover"><img src="./media/win-logo.svg" alt=""></div>' : ''
+    }<div class="win-record-content"><h1 tabindex="-1">${escape(title)}</h1>${html}</div>`;
+  }
   async function showProfile(id) {
-    const initial = session();
-    modal('Profile', '<p class="win-loading">Loading profile…</p>');
+    const initial = session(),
+      token = pageGeneration;
     const [{ record: p }, { record: points }, endorsements, work] = await Promise.all([
       read('/profiles/' + id),
       read('/scores/' + id),
       all('endorsements', '&profileId=' + id),
       all('contracts', '&profileId=' + id),
     ]);
-    if (!sameSession(initial)) return;
-    editing = p;
-    context = { profile: p, score: points, endorsements, work };
-    modal(
+    if (!sameSession(initial) || token !== pageGeneration) return;
+    editing = pageRecord = p;
+    context = pageContext = { profile: p, score: points, endorsements, work };
+    recordPage(
+      'profile',
       p.displayName,
       `<div class="win-profile-banner"><span class="win-avatar large">${escape(
         p.displayName.slice(0, 2).toUpperCase()
@@ -243,23 +272,35 @@ export function createWinWorkspace(api) {
           )
           .join('') || '<p>No skills added.</p>'
       }</div>${Object.entries(p.details || {})
-        .filter(([key]) => !['headline', 'firstName', 'lastName', 'skills'].includes(key))
+        .filter(
+          ([key]) =>
+            !['headline', 'firstName', 'lastName', 'skills', 'experience', 'education', 'internships'].includes(key)
+        )
         .map(
           ([key, value]) =>
             `<h3>${escape(key.replace(/([A-Z])/g, ' $1'))}</h3><p class="win-prose">${escape(allText(value))}</p>`
         )
         .join('')}${
         p.contact ? `<h3>Contact</h3><p class="win-prose">${escape(allText(p.contact))}</p>` : ''
-      }<h3>Work records <span class="win-count">${work.length}</span></h3>${
-        work
-          .map(
-            (c) =>
-              `<div class="win-row"><div><strong>${escape(c.title)}</strong><p>${escape(c.workStatus)} · ${escape(
-                c.effectiveApprovalStatus
-              )}</p></div>${button('contract', 'Review', c.id, true)}</div>`
-          )
-          .join('') || '<p>No contracts yet.</p>'
-      }<h3>Skill endorsements</h3><p class="win-help">Endorsements are signed attestations. The proof score currently reflects the network’s contract-outcome rules.</p>${
+      }${cvSections(p, work)
+        .map(
+          (section) =>
+            `<section class="win-cv-section"><h3>${section.title}</h3>${
+              section.details ? `<p class="win-prose">${escape(allText(section.details))}</p>` : ''
+            }${
+              section.records
+                .map(
+                  (c) =>
+                    `<div class="win-row"><div><strong>${escape(c.title)}</strong><p>${escape(c.workStatus)} · ${escape(
+                      c.effectiveApprovalStatus || c.approvalStatus
+                    )}</p></div>${button('contract', 'Review', c.id, true)}</div>`
+                )
+                .join('') || (section.details ? '' : '<p>No records yet.</p>')
+            }</section>`
+        )
+        .join(
+          ''
+        )}<h3>Skill endorsements</h3><p class="win-help">Endorsements are signed attestations. The proof score currently reflects the network’s contract-outcome rules.</p>${
         endorsements
           .filter((e) => e.subjectProfileId === p.id)
           .map(
@@ -277,7 +318,9 @@ export function createWinWorkspace(api) {
     );
   }
   async function profileForm(record = null) {
+    const token = pageGeneration;
     await loadIdentity();
+    if (token !== pageGeneration) return;
     editing = record;
     const p = record || { type: 'person', details: {} };
     const selected = new Set((p.details.skills || []).map((s) => s.skillId));
@@ -374,11 +417,27 @@ export function createWinWorkspace(api) {
     }
     await review('profile', editing ? 'update' : 'create', editing, p);
   }
-  async function loadContracts() {
-    const initial = session();
-    const values = await Promise.all(owned.map((p) => all('contracts', '&profileId=' + p.id)));
-    if (!sameSession(initial)) return;
-    contracts = [...new Map(values.flat().map((c) => [c.id, c])).values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  async function loadContracts(append = false) {
+    const initial = session(),
+      token = ++contractGeneration;
+    let total;
+    if (contractScope === 'public') {
+      const page = await read(`/contracts?limit=24${append && contractCursor ? '&cursor=' + contractCursor : ''}`);
+      if (!sameSession(initial) || token !== contractGeneration) return;
+      contracts = append ? [...contracts, ...page.records] : page.records;
+      contractCursor = page.nextCursor;
+      total = page.total;
+    } else {
+      const values = await Promise.all(owned.map((p) => all('contracts', '&profileId=' + p.id)));
+      if (!sameSession(initial) || token !== contractGeneration) return;
+      contracts = [...new Map(values.flat().map((c) => [c.id, c])).values()].sort((a, b) => b.updatedAt - a.updatedAt);
+      contractCursor = null;
+      total = contracts.length;
+    }
+    document.getElementById('winContractsMore').hidden = !contractCursor;
+    document.getElementById('winContractCount').textContent = `${total} ${
+      contractScope === 'public' ? 'public' : 'personal'
+    } contract${total === 1 ? '' : 's'}`;
     document.getElementById('winContracts').innerHTML = contracts.length
       ? contracts
           .map(
@@ -387,14 +446,16 @@ export function createWinWorkspace(api) {
                 c.effectiveApprovalStatus
               )}<small>${date(c.updatedAt)}</small></div><h3>${escape(c.title)}</h3><p>${escape(
                 c.publicDescription || 'Work agreement'
-              )}</p><div class="win-tags"><span>${escape(c.workStatus)}</span><span>${escape(
-                c.terms.durationMonths
-              )} months</span><span>${c.approvals.length}/${
+              )}</p><div class="win-tags"><span>${escape(CONTRACT_TYPES[contractType(c)])}</span><span>${escape(
+                c.workStatus
+              )}</span><span>${escape(c.terms.durationMonths)} months</span><span>${c.approvals.length}/${
                 c.hiringProfileIds.length
               } approvals</span></div><div class="win-card-bottom"><small>${
                 c.workerProfileId && owned.some((p) => p.id === c.workerProfileId)
                   ? 'Your work record'
-                  : 'Your signature requested'
+                  : owned.some((p) => c.hiringProfileIds.includes(p.id))
+                  ? 'Your hiring record'
+                  : 'Public work record'
               }</small>${button('contract', 'Review contract ↗', c.id, true)}</div></article>`
           )
           .join('')
@@ -403,6 +464,40 @@ export function createWinWorkspace(api) {
           'Create a work contract, define the terms, and invite your client or employer to sign.',
           button('create-contract', '+ Create contract')
         );
+  }
+  let institutionLookup = 0;
+  async function updateContractTypes() {
+    const f = dialog.querySelector('[data-win-form="contract"]');
+    if (!f) return;
+    const token = ++institutionLookup,
+      initial = session();
+    const ids = [
+      ...new Set(
+        f.elements.hiringProfileIds.value
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+    ];
+    const option = f.elements.contractType.querySelector('[value="student"]');
+    const hint = f.querySelector('[data-contract-type-help]');
+    option.hidden = option.disabled = true;
+    hint.textContent = 'Select a university or school as the hiring institution to use Student.';
+    let eligible = false;
+    try {
+      if (ids.length && ids.every(isId)) {
+        const institutions = await Promise.all(
+          ids.map((id) => read('/profiles/' + id).then((result) => result.record))
+        );
+        eligible = allowsStudentContract(institutions);
+      }
+    } catch {
+      /* The submission check will report an unavailable institution. */
+    }
+    if (token !== institutionLookup || !sameSession(initial) || !f.isConnected) return;
+    option.hidden = option.disabled = !eligible;
+    if (eligible) hint.textContent = 'Student contracts appear in Education. Internships have their own CV section.';
+    else if (f.elements.contractType.value === 'student') f.elements.contractType.value = 'employee';
   }
   function updateContractFields() {
     const f = dialog.querySelector('[data-win-form="contract"]');
@@ -436,9 +531,12 @@ export function createWinWorkspace(api) {
     dialog.addEventListener(eventName, (event) => {
       if (['startDate', 'endDate', 'durationMonths', 'durationMode', 'workStatus'].includes(event.target.name))
         updateContractFields();
+      if (event.target.name === 'hiringProfileIds') void updateContractTypes();
     });
   async function contractForm(record = null) {
+    const token = pageGeneration;
     await loadIdentity();
+    if (token !== pageGeneration) return;
     if (!owned.length) throw new Error('Create a profile before creating a contract.');
     editing = record;
     const c = record || { terms: {}, hiringProfileIds: [], skillIds: [], periodOutcomes: [] };
@@ -456,11 +554,11 @@ export function createWinWorkspace(api) {
         'contract',
         `<div class="win-form-grid">${input('title', 'Contract title', c.title, 'required maxlength="250"')}${select(
           'workerProfileId',
-          'Your worker profile',
+          'Your profile',
           owned.map((p) => [p.id, p.displayName]),
           c.workerProfileId,
           record ? 'disabled' : ''
-        )}${select(
+        )}${select('contractType', 'Contract type', Object.entries(CONTRACT_TYPES), contractType(c))}${select(
           'origin',
           'Work record',
           [
@@ -501,7 +599,7 @@ export function createWinWorkspace(api) {
             ['onsite', 'On site'],
           ],
           c.terms.workMode || 'remote'
-        )}</div><label class="win-field">Find a client or employer<input id="winHiringSearch" placeholder="Search profiles by name or title" autocomplete="off"></label><div id="winHiringResults"></div>${area(
+        )}</div><p class="win-help" data-contract-type-help></p><label class="win-field">Find an employer or institution<input id="winHiringSearch" placeholder="Search profiles by name or title" autocomplete="off"></label><div id="winHiringResults"></div>${area(
           'hiringProfileIds',
           'Hiring profile IDs (one per line)',
           c.hiringProfileIds.join('\n'),
@@ -545,9 +643,13 @@ export function createWinWorkspace(api) {
       )
     );
     updateContractFields();
+    await updateContractTypes();
   }
   async function contractSubmit(data) {
+    const token = pageGeneration;
     const periods = contractPeriods(data);
+    const selectedType = data.get('contractType');
+    if (!Object.hasOwn(CONTRACT_TYPES, selectedType)) throw new Error('Choose a contract type.');
     const lines = (value) =>
       value
         .split(/\n/)
@@ -559,6 +661,12 @@ export function createWinWorkspace(api) {
     const ids = [...new Set(lines(data.get('hiringProfileIds')))];
     if (!ids.length || ids.some((id) => !isId(id)))
       throw new Error('Choose valid hiring profiles from the search results.');
+    if (selectedType === 'student') {
+      const institutions = await Promise.all(ids.map((id) => read('/profiles/' + id).then((result) => result.record)));
+      if (!allowsStudentContract(institutions))
+        throw new Error('Student contracts require a university or school for every hiring profile.');
+    }
+    c.contractType = selectedType;
     c.title = data.get('title').trim();
     if (!c.title) throw new Error('Enter a contract title.');
     c.publicDescription = data.get('publicDescription').trim();
@@ -585,13 +693,16 @@ export function createWinWorkspace(api) {
         frequency: data.get('frequency'),
       };
     } else delete c.compensation;
+    if (token !== pageGeneration) return;
     await review('contract', editing ? 'update' : 'create', editing, c);
   }
   async function showContract(id) {
+    const token = pageGeneration;
     await loadIdentity();
     const { record: c, effectiveApprovalStatus } = await read('/contracts/' + id);
-    editing = c;
-    context = { contract: c };
+    if (token !== pageGeneration) return;
+    editing = pageRecord = c;
+    context = pageContext = { contract: c };
     const initial = session(),
       worker = owned.find((p) => p.id === c.workerProfileId);
     const eligible = owned.filter(
@@ -600,7 +711,8 @@ export function createWinWorkspace(api) {
         c.approvalRequest?.authorities?.[p.id]?.includes(initial.address) &&
         !c.approvals.some((a) => a.profileId === p.id)
     );
-    modal(
+    recordPage(
+      'contract',
       c.title,
       `${badge(effectiveApprovalStatus)}<p class="win-prose">${escape(
         c.publicDescription
@@ -622,7 +734,7 @@ export function createWinWorkspace(api) {
           : 'Not specified'
       }</dd><dt>Attested outcomes</dt><dd>${escape(
         c.periodOutcomes.map((p) => `Month ${p.month}: ${p.outcome}`).join(' · ') || 'None'
-      )}</dd><dt>Skills</dt><dd>${escape(
+      )}</dd><dt>Contract type</dt><dd>${escape(CONTRACT_TYPES[contractType(c)])}</dd><dt>Skills</dt><dd>${escape(
         c.skillIds.map(skillName).join(', ') || 'None listed'
       )}</dd><dt>Approvals</dt><dd>${c.approvals.length} of ${
         c.hiringProfileIds.length
@@ -668,8 +780,10 @@ export function createWinWorkspace(api) {
     );
   }
   async function endorseForm(id) {
+    const token = pageGeneration;
     await loadIdentity();
     const { record: p } = await read('/profiles/' + id);
+    if (token !== pageGeneration) return;
     const options = (p.details?.skills || []).map((s) => [s.skillId, skillName(s.skillId)]);
     if (!owned.length) throw new Error('Create your own profile before endorsing someone.');
     if (!options.length) throw new Error('This person needs to add skills before you can endorse them.');
@@ -699,14 +813,18 @@ export function createWinWorkspace(api) {
   }
   async function exportPdf() {
     const initial = session();
-    const snapshot = { ...context, skills: structuredClone(skills), networkId: initial.networkId };
+    const snapshot = {
+      ...(pageContext?.profile ? pageContext : context),
+      skills: structuredClone(skills),
+      networkId: initial.networkId,
+    };
     const { downloadProfilePdf } = await import('./win-pdf.mjs');
     await downloadProfilePdf(snapshot);
     note('Profile PDF downloaded.');
   }
   async function act(action, id) {
     if (action === 'create-profile') await profileForm();
-    else if (action === 'profile') await showProfile(id);
+    else if (action === 'profile') await navigate('profile', id);
     else if (action === 'edit-profile') await profileForm(editing);
     else if (action === 'copy-profile') {
       await navigator.clipboard.writeText(id);
@@ -714,15 +832,21 @@ export function createWinWorkspace(api) {
     } else if (action === 'pdf') await exportPdf();
     else if (action === 'create-contract') await contractForm();
     else if (action === 'edit-contract') await contractForm(editing);
-    else if (action === 'contract') await showContract(id);
+    else if (action === 'contract') await navigate('contract', id);
     else if (action === 'request-approval') await review('contract', 'request_approval', editing);
     else if (action === 'endorse') await endorseForm(id);
     else if (action === 'submit') await publish();
     else if (action === 'refresh-close') {
       dialog.close();
-      await open(document.querySelector('.win-screen.active')?.dataset.view || 'profiles');
-    } else if (action === 'refresh')
-      await open(document.querySelector('.win-screen.active')?.dataset.view || 'profiles');
+      await navigate(currentView, activeRecordId);
+    } else if (action === 'refresh') await navigate(currentView, activeRecordId);
+    else if (action === 'contracts-public' || action === 'contracts-mine') {
+      contractScope = action === 'contracts-public' ? 'public' : 'mine';
+      document
+        .querySelectorAll('#winContractScope button')
+        .forEach((b) => b.classList.toggle('selected', b.dataset.winAction === action));
+      await loadContracts();
+    } else if (action === 'contracts-more') await loadContracts(true);
     else if (action === 'more') await profileList(true);
     else if (action === 'all' || action === 'mine') {
       mine = action === 'mine';
@@ -776,11 +900,13 @@ export function createWinWorkspace(api) {
   document.addEventListener('click', (event) => {
     const b = event.target.closest('[data-win-action]');
     if (b) {
+      if (b.tagName === 'A' && (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button))
+        return;
       event.preventDefault();
       guarded(() => act(b.dataset.winAction, b.dataset.id));
     }
   });
-  dialog.addEventListener('submit', (event) => {
+  document.addEventListener('submit', (event) => {
     const f = event.target.closest('[data-win-form]');
     if (!f) return;
     event.preventDefault();
@@ -803,7 +929,7 @@ export function createWinWorkspace(api) {
           skillId: data.get('skillId'),
           relationship: data.get('relationship'),
           statement: data.get('statement').trim(),
-          durationMonths: periods.durationMonths,
+          durationMonths: Number(data.get('durationMonths')),
         });
       else if (f.dataset.winForm === 'skill')
         await review('skill', 'create', null, {
@@ -856,36 +982,80 @@ export function createWinWorkspace(api) {
     const field = dialog.querySelector('[name="hiringProfileIds"]');
     field.value = [...new Set([...field.value.split('\n').filter(Boolean), b.dataset.pickProfile])].join('\n');
     b.textContent = 'Added ✓';
+    void updateContractTypes();
   });
-  async function open(view) {
-    const initial = session();
+  async function navigate(view, id) {
+    if (api.navigate) return api.navigate(view, id);
+    leave();
+    document.querySelectorAll('.app-screen').forEach((el) => el.classList.remove('active'));
+    history.pushState(null, '', winRouteHash(view, id));
+    return open(view, id);
+  }
+  function leave() {
+    ++pageGeneration;
+    ++generation;
+    ++contractGeneration;
+    ++hiringGeneration;
+    clearTimeout(timer);
+    dialog.close();
+    editing = context = pageRecord = pageContext = null;
+    note('');
+  }
+  async function open(view, id) {
+    const initial = session(),
+      token = ++pageGeneration;
     if (!initial) return;
+    currentView = view;
+    activeRecordId = id || null;
     if (view === 'wallet') {
       document.getElementById('winNativeAddress').textContent = initial.address;
       return;
     }
     const screen = document.getElementById(view + 'Screen');
     screen.classList.add('active');
+    const targetId = {
+      profiles: 'winProfiles',
+      contracts: 'winContracts',
+      profile: 'winProfilePage',
+      contract: 'winContractPage',
+      statistics: 'winStatistics',
+    }[view];
+    const target = document.getElementById(targetId);
+    target.innerHTML = '<p class="win-loading">Loading public records…</p>';
     note('Loading network records…');
-    const target = document.getElementById(view === 'profiles' ? 'winProfiles' : 'winContracts');
-    target.innerHTML = '<p class="win-loading">Loading records from WIN…</p>';
+    const isCurrent = () => sameSession(initial) && token === pageGeneration;
     try {
+      if (view === 'statistics') {
+        const stats = await loadNetworkStatistics(read, { isCurrent });
+        if (!isCurrent()) return;
+        target.innerHTML = renderStatistics(stats);
+        note(
+          stats.breakdownComplete
+            ? 'Statistics from public WIN records.'
+            : 'Some statistics are unavailable. Refresh to retry.'
+        );
+        return;
+      }
       await loadIdentity();
-      if (!sameSession(initial)) return;
+      if (!isCurrent()) return;
       document.getElementById('winOwnedCount').textContent = owned.length;
       document.getElementById('winSkillCount').textContent = skills.length;
       if (view === 'profiles') await profileList();
+      else if (view === 'profile') await showProfile(id);
+      else if (view === 'contract') await showContract(id);
       else await loadContracts();
-      note('Public records from the WIN network.');
+      if (isCurrent()) note('Public records from the WIN network.');
     } catch (error) {
-      if (!sameSession(initial)) return;
+      if (!isCurrent()) return;
       note(error.message, true);
       target.innerHTML = empty('Unable to load network records', escape(error.message), button('refresh', 'Try again'));
     }
   }
   return {
     open,
+    leave,
     reset() {
+      leave();
       ++generation;
       ++hiringGeneration;
       clearTimeout(timer);

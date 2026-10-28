@@ -84,6 +84,7 @@ export function contractContent(record) {
   return Object.fromEntries(
     [
       'origin',
+      'contractType',
       'title',
       'publicDescription',
       'encryptedDescription',

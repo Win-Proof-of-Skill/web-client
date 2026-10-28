@@ -67,10 +67,11 @@
     <script src="./win-payments.js"></script>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./win-theme.css" />
+    <link rel="stylesheet" href="./win-professional.css" />
     <link rel="icon" type="image/svg+xml" href="./media/win-logo.svg" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
-  <body>
+  <body class="win-professional">
     <script src="./app.js" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
@@ -106,6 +107,18 @@
         </div>
       </header>
 
+      <aside id="winSidebar" class="win-sidebar" aria-label="Your WIN workspace">
+        <div class="win-sidebar-card win-sidebar-brand"><img src="./media/win-logo.svg" alt="WIN Proof of Skill"><h2>Your work matters.</h2><p>A professional identity backed by proof.</p><button class="win-button" data-win-action="create-profile">+ Create profile</button></div>
+        <nav class="win-sidebar-card" aria-label="Workspace pages">
+          <a href="#/profiles" data-win-route="profiles">Public profiles</a>
+          <a href="#/contracts" data-win-route="contracts">Contracts</a>
+          <a href="#/contacts" data-win-route="contacts">My contacts</a>
+          <a href="#/wallet" data-win-route="wallet">My wallet</a>
+          <a href="#/statistics" data-win-route="statistics">Network statistics</a>
+        </nav>
+        <div class="win-sidebar-card"><span class="win-kicker">YOUR WORKSPACE</span><div class="win-sidebar-metric"><span>Your profiles</span><strong id="winOwnedCount">—</strong></div><div class="win-sidebar-metric"><span>Registered skills</span><strong id="winSkillCount">—</strong></div><button class="win-link-button" data-win-action="register-skill">+ Register a skill</button></div>
+        <p class="win-sidebar-footnote">WIN · Proof of Skill<br>Your skills. Your work. Your reputation.</p>
+      </aside>
       <div class="welcome-screen is-booting" id="welcomeScreen">
         <a href="https://win-pskill.com" target="_blank" rel="noopener noreferrer" title="Visit WIN Proof of Skill" class="logo-link">
           <img src="./media/win-logo.svg" alt="WIN Proof of Skill emblem" style="margin-bottom: 20px" />
@@ -155,6 +168,7 @@
       </div>
 
       <div class="app-screen" id="contactsScreen">
+        <div class="win-contacts-heading"><div><span class="win-kicker">YOUR NETWORK</span><h1>Contacts</h1><p>Keep the people you work with close.</p></div><button type="button" id="winAddContact" class="win-button" aria-label="Add contact">+</button></div>
         <!-- Add search bar for contacts -->
         <div class="search-bar-container" id="contactSearchBarContainer">
           <div class="search-bar">
@@ -267,19 +281,32 @@
       </div>
 
       <section class="app-screen win-screen" id="profilesScreen" data-view="profiles" aria-label="Profile directory">
-        <div class="win-hero"><div><span class="win-kicker">THE PROOF IS IN YOUR WORK</span><h1>Your work.<br><em>Your proof.</em></h1><p>Turn experience into a reputation you own.<br>Discover people. Recognize skills. Build trust.</p><button class="win-button light" data-win-action="create-profile">+ Create your profile</button></div><img src="./media/win-logo.svg" alt="WIN geometric emblem" class="win-hero-emblem"><span class="win-hero-caption">WIN / PROOF OF SKILL</span></div>
-        <div class="win-stats"><div><strong id="winOwnedCount">—</strong><span>Your profiles</span></div><div><strong id="winSkillCount">—</strong><span>Registered skills</span></div><div><strong>Yours.</strong><span>Your work, your identity</span></div></div>
-        <div class="win-section-heading"><div><span class="win-kicker">THE WIN DIRECTORY</span><h2>Find your people.</h2></div><button class="win-link-button" data-win-action="register-skill">+ Register a skill</button></div>
+        <div class="win-directory-heading"><div><span class="win-kicker">THE WIN COMMUNITY</span><h1>Discover people.<br>Recognize their work.</h1><p>Explore public profiles, find the skills you need, and build trusted connections.</p></div><button class="win-button" data-win-action="create-profile">+ Create profile</button></div>
+        <div class="win-directory-layout"><div class="win-directory-main">
         <form id="winSearchForm" class="win-search"><span aria-hidden="true">⌕</span><input id="winSearch" aria-label="Search profiles by title or skill" placeholder="Search by name, title, or skill…" maxlength="250" autocomplete="off"><button type="submit" class="win-button">Search</button></form>
         <div class="win-list-toolbar"><div class="win-segments"><button type="button" class="selected" data-win-action="all">Explore profiles</button><button type="button" data-win-action="mine">My profiles</button></div><span id="winResultCount"></span></div>
         <div id="winProfiles" class="win-profile-grid"></div><button class="win-button secondary win-more" id="winMore" data-win-action="more" hidden>Load more profiles</button>
+        </div><aside class="win-directory-aside"><div class="win-sidebar-card"><span class="win-kicker">BUILT ON PROOF</span><h2>More than a profile.</h2><p>Signed contracts and skill endorsements bring your experience to life.</p><a class="win-link-button" href="#/contracts" data-win-route="contracts">Explore contracts →</a></div><div class="win-sidebar-card"><h2>A growing community</h2><p>See the people, skills, and work shaping the WIN network.</p><button class="win-link-button" data-win-action="register-skill">+ Register a skill</button><a class="win-link-button" href="#/statistics" data-win-route="statistics">View statistics →</a></div></aside></div>
       </section>
       <section class="app-screen win-screen" id="contractsScreen" data-view="contracts" aria-label="Work contracts">
-        <div class="win-page-heading"><div><span class="win-kicker">SIGNED. SHARED. RECOGNIZED.</span><h1>Work with trust.</h1><p>Agree on the work. Sign the terms. Build your proof.</p></div><button class="win-button" data-win-action="create-contract">+ Create contract</button></div>
+        <div class="win-page-heading"><div><span class="win-kicker">SIGNED. SHARED. RECOGNIZED.</span><h1>Work, backed by trust.</h1><p>Agree on the work. Sign the terms. Build your proof.</p></div><button class="win-button" data-win-action="create-contract">+ Create contract</button></div>
         <div class="win-callout"><span aria-hidden="true">◎</span><p>Contracts connect your skills to real work. Both sides sign the same terms, and completed outcomes build your proof score.</p></div>
-        <div class="win-section-heading"><h2>Your contracts & approvals</h2><button class="win-link-button" data-win-action="refresh">↻ Refresh</button></div><div id="winContracts" class="win-profile-grid"></div>
+        <div class="win-list-toolbar"><div id="winContractScope" class="win-segments"><button type="button" class="selected" data-win-action="contracts-public">Public contracts</button><button type="button" data-win-action="contracts-mine">My contracts & approvals</button></div><button class="win-link-button" data-win-action="refresh">↻ Refresh</button></div><p id="winContractCount" class="win-help"></p><div id="winContracts" class="win-profile-grid"></div><button class="win-button secondary win-more" id="winContractsMore" data-win-action="contracts-more" hidden>Load more contracts</button>
       </section>
+      <section class="app-screen win-screen" id="profileScreen" data-view="profile" aria-label="Public profile"><a href="#/profiles" data-win-route="profiles" class="win-back-link">← Public profiles</a><div id="winProfilePage" class="win-record-page"></div></section>
+      <section class="app-screen win-screen" id="contractScreen" data-view="contract" aria-label="Contract details"><a href="#/contracts" data-win-route="contracts" class="win-back-link">← Contracts</a><div id="winContractPage" class="win-record-page"></div></section>
+      <section class="app-screen win-screen" id="statisticsScreen" data-view="statistics" aria-label="Network statistics"><div class="win-page-heading"><div><span class="win-kicker">THE NETWORK AT A GLANCE</span><h1>Skills. People. Progress.</h1><p>Explore public records across the WIN community.</p></div><button class="win-button secondary" data-win-action="refresh">↻ Refresh statistics</button></div><div id="winStatistics" aria-live="polite"></div></section>
       <p id="winStatus" class="win-status" role="status" aria-live="polite"></p>
+      <dialog id="winAddContactDialog" class="win-dialog" aria-labelledby="winAddContactTitle">
+        <div class="win-dialog-header"><h2 id="winAddContactTitle">Add contact</h2><button type="button" data-close aria-label="Close dialog">×</button></div>
+        <form class="win-dialog-body">
+          <label class="win-field">Contact ID<input name="id" required autocomplete="off" spellcheck="false" placeholder="WIN wallet address"></label>
+          <p class="win-help">Use the public address from the contact's WIN wallet.</p>
+          <label class="win-field">Name<input name="name" required maxlength="100" autocomplete="off"></label>
+          <p role="alert" class="win-dialog-error"></p>
+          <button type="submit" class="win-button">Add contact</button>
+        </form>
+      </dialog>
       <dialog id="winDialog" class="win-dialog" aria-labelledby="winDialogTitle"><div class="win-dialog-header"><h2 id="winDialogTitle"></h2><button type="button" data-close aria-label="Close dialog">×</button></div><div class="win-dialog-body"></div><p class="win-dialog-error" role="alert"></p></dialog>
       <footer class="footer" id="footer">
         <div class="nav-buttons">
@@ -288,6 +315,7 @@
           <button class="nav-button" id="switchToChats" hidden inert data-win-retired="messaging">Chats</button>
           <button class="nav-button" id="switchToContacts">Contacts</button>
           <button class="nav-button" id="switchToWallet">Wallet</button>
+          <button class="nav-button" id="switchToStatistics" data-win-view="statistics">Statistics</button>
         </div>
         <!-- set focus on last-item in the footer -->
         <a class="last-item" href="#"> </a>

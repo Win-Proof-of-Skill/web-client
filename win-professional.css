@@ -1,0 +1,1474 @@
+/* WIN's professional directory: emerald identity, readable records, full pages. */
+body.win-professional {
+  --win-ink: #19392b;
+  --win-muted: #617168;
+  --win-line: #dce5de;
+  --win-paper: #f3f5f2;
+  --font-size-base: 17px;
+  --font-size-sm: 15px;
+  --font-size-xs: 14px;
+  --win-topbar: 78px;
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: var(--win-paper);
+  color: var(--win-ink);
+  font-size: 17px;
+  line-height: 1.6;
+  overflow-x: clip;
+  touch-action: auto;
+}
+body.win-professional .container {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 24px 28px;
+  align-items: start;
+  width: min(1440px, 100%);
+  min-height: 100dvh;
+  height: auto;
+  padding: calc(var(--win-topbar) + 32px) 28px 48px;
+  margin: 0 auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  text-align: left;
+}
+body.win-professional .container:not(:has(.header.active)) {
+  display: flex;
+  padding: 0;
+  width: 100%;
+  min-height: 100dvh;
+}
+body.win-professional .container:not(:has(.header.active)) .win-status {
+  display: none;
+}
+body.win-professional .app-screen {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0 0 24px;
+  overflow: visible;
+  text-align: left;
+}
+body.win-professional #walletScreen,
+body.win-professional #contactsScreen {
+  padding: 0 0 32px;
+}
+body.win-professional .header {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 0 max(28px, calc((100vw - 1384px) / 2));
+  background: #fff;
+  border-bottom: 1px solid var(--win-line);
+  box-shadow: 0 2px 10px #183b2a03;
+}
+body.win-professional .header.active {
+  height: var(--win-topbar);
+  margin: 0;
+  justify-content: flex-start;
+  gap: 16px;
+}
+body.win-professional .header #logo img {
+  width: 48px;
+  height: 48px;
+}
+body.win-professional .header .app-name-container {
+  margin-left: auto;
+  margin-right: 0;
+  max-width: 168px;
+  gap: 9px;
+}
+body.win-professional .header .app-name {
+  font-size: 16px;
+}
+body.win-professional .header .app-name-avatar {
+  width: 34px;
+  height: 34px;
+}
+body.win-professional .header-icons {
+  gap: 4px;
+}
+body.win-professional .header-icons .icon-button {
+  min-width: 36px;
+}
+body.win-professional .offline-indicator {
+  font-size: 12px;
+}
+body.win-professional .footer {
+  position: fixed;
+  z-index: 55;
+  top: 0;
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(610px, calc(100vw - 570px));
+  height: var(--win-topbar);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+body.win-professional .nav-buttons {
+  max-width: none;
+  height: 100%;
+}
+body.win-professional .nav-button {
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px 8px;
+  min-width: 0;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  color: #58695e;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+body.win-professional .nav-button::before {
+  width: 23px;
+  height: 23px;
+  margin: 0;
+}
+body.win-professional .nav-button.active {
+  color: #006c35;
+  background: #f2f7f3;
+  border-bottom-color: #006c35;
+}
+body.win-professional .nav-button:hover {
+  background: #f2f7f3;
+}
+body.win-professional #switchToStatistics::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='%23006c35' stroke-width='1.8' viewBox='0 0 24 24'%3E%3Cpath d='M4 3v17h17M8 15v-4m5 4V5m5 10V8'/%3E%3C/svg%3E");
+}
+body.win-professional .win-sidebar {
+  display: none;
+}
+body.win-professional .container:has(.header.active) .win-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  grid-column: 1;
+  grid-row: 1;
+  position: sticky;
+  top: calc(var(--win-topbar) + 24px);
+  min-width: 0;
+}
+.win-sidebar-card,
+.win-directory-aside > section,
+.win-directory-aside > .win-sidebar-card {
+  overflow: hidden;
+  border: 1px solid var(--win-line);
+  border-radius: 14px;
+  background: white;
+  padding: 22px;
+}
+.win-sidebar-card > img {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 12px;
+}
+.win-sidebar-card h2,
+.win-sidebar-card h3 {
+  margin: 0 0 8px;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.win-sidebar-card p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--win-muted);
+  margin: 0 0 16px;
+}
+.win-sidebar-card p:last-child {
+  margin-bottom: 0;
+}
+.win-sidebar-card .win-button {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 14px;
+}
+.win-sidebar-brand {
+  text-align: center;
+  padding-top: 27px;
+}
+.win-sidebar-brand h2 {
+  font-size: 23px;
+  letter-spacing: -0.5px;
+  margin-bottom: 9px;
+}
+.win-sidebar-brand .win-kicker {
+  font-size: 10px;
+  color: #006c35;
+}
+.win-sidebar-links {
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+}
+.win-sidebar nav.win-sidebar-card {
+  padding: 11px;
+}
+.win-sidebar-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  font-size: 14px;
+  color: var(--win-muted);
+}
+.win-sidebar-metric strong {
+  font-size: 21px;
+  color: #006c35;
+}
+.win-sidebar [data-win-route] {
+  display: block;
+  padding: 10px 12px;
+  color: #385344;
+  border-radius: 7px;
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.win-sidebar [data-win-route]:hover,
+.win-sidebar [data-win-route][aria-current='page'],
+.win-sidebar [data-win-route].active {
+  background: #eaf3ec;
+  color: #006c35;
+}
+.win-sidebar .win-button[data-win-route] {
+  background: #006c35;
+  color: white;
+  text-align: center;
+}
+.win-sidebar-footnote {
+  color: var(--win-muted);
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 0 12px;
+}
+.win-directory-heading,
+body.win-professional .win-page-heading,
+body.win-professional .win-contacts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 0 25px;
+  padding: 0;
+}
+.win-directory-heading h1,
+body.win-professional .win-page-heading h1,
+body.win-professional .win-contacts-heading h2 {
+  margin: 0 0 7px;
+  color: var(--win-ink);
+  font-size: clamp(29px, 2.8vw, 38px);
+  font-weight: 600;
+  letter-spacing: -1.1px;
+  line-height: 1.2;
+  text-align: left;
+}
+.win-directory-heading p,
+body.win-professional .win-page-heading p,
+body.win-professional .win-contacts-heading p {
+  font-size: 16px;
+  color: var(--win-muted);
+  margin: 0;
+  line-height: 1.6;
+}
+.win-directory-heading > .win-button,
+body.win-professional .win-page-heading > .win-button {
+  flex-shrink: 0;
+}
+.win-directory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+  align-items: start;
+}
+.win-directory-layout > * {
+  min-width: 0;
+}
+.win-directory-aside {
+  display: grid;
+  gap: 18px;
+  position: sticky;
+  top: calc(var(--win-topbar) + 24px);
+}
+.win-directory-aside .win-kicker {
+  color: #006c35;
+  margin-bottom: 14px;
+}
+.win-directory-aside h3 {
+  font-size: 19px;
+  margin: 0 0 12px;
+}
+.win-directory-aside p {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--win-muted);
+  margin-bottom: 16px;
+}
+.win-directory-aside .win-stats {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.win-directory-aside .win-stats > div {
+  border: 0;
+  padding: 12px 0;
+  justify-content: space-between;
+  align-items: center;
+}
+.win-directory-aside .win-stats strong {
+  font-size: 25px;
+}
+.win-directory-aside .win-stats span {
+  font-size: 14px;
+}
+body.win-professional .win-kicker {
+  font-size: 11px;
+  letter-spacing: 1.8px;
+}
+body.win-professional .win-button {
+  min-height: 45px;
+  font-size: 15px;
+  padding: 12px 18px;
+  border-radius: 8px;
+}
+body.win-professional .win-link-button {
+  font-size: 15px;
+  line-height: 1.5;
+}
+body.win-professional .win-button.secondary {
+  border-color: #b8cfc0;
+}
+body.win-professional .win-search {
+  padding: 7px 8px 7px 18px;
+  margin-bottom: 17px;
+  border-radius: 11px;
+}
+body.win-professional .win-search input {
+  font-size: 17px;
+  padding: 10px 0;
+}
+body.win-professional .win-search input::placeholder {
+  color: #758078;
+  opacity: 1;
+}
+body.win-professional .win-search > span {
+  font-size: 29px;
+  color: #52745d;
+}
+body.win-professional .win-segments {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body.win-professional .win-segments button {
+  font-size: 15px;
+  padding: 10px 15px;
+  border-radius: 7px;
+}
+body.win-professional .win-segments .selected {
+  background: #dfeee3;
+}
+body.win-professional .win-list-toolbar {
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+body.win-professional .win-list-toolbar > span {
+  font-size: 14px;
+}
+body.win-professional .win-profile-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+body.win-professional .win-profile-card,
+body.win-professional .win-contract-card {
+  padding: 26px;
+  border-radius: 13px;
+  box-shadow: 0 2px 3px #183b2a03;
+}
+body.win-professional .win-profile-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-areas: 'identity name' 'identity role' 'identity summary' 'identity tags' 'bottom bottom';
+  gap: 0 20px;
+}
+body.win-professional .win-profile-card .win-card-top {
+  grid-area: identity;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+body.win-professional .win-profile-card .win-card-top .win-badge {
+  max-width: 90px;
+  white-space: normal;
+  text-align: center;
+  font-size: 11px;
+}
+body.win-professional .win-avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 25px;
+  background: #e8f0e8;
+  border-color: #d1e0d2;
+}
+body.win-professional .win-profile-card h3 {
+  grid-area: name;
+  margin: 0 0 5px;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.4px;
+}
+body.win-professional .win-profile-card .win-role {
+  grid-area: role;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  color: #425c4b;
+}
+body.win-professional .win-profile-card .win-card-summary {
+  grid-area: summary;
+  min-height: 0;
+  font-size: 16px;
+  line-height: 1.65;
+  margin: 0 0 15px;
+  color: #617168;
+}
+body.win-professional .win-profile-card .win-tags {
+  grid-area: tags;
+}
+body.win-professional .win-profile-card .win-card-bottom {
+  grid-area: bottom;
+  margin-top: 5px;
+}
+body.win-professional .win-tags {
+  gap: 7px;
+  margin: 0 0 20px;
+}
+body.win-professional .win-tags > span {
+  font-size: 13px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  background: #f4f7f3;
+  color: #41644b;
+}
+body.win-professional .win-badge {
+  font-size: 12px;
+  padding: 5px 10px;
+  letter-spacing: 0;
+}
+body.win-professional .win-card-bottom {
+  padding-top: 18px;
+}
+body.win-professional .win-card-bottom .win-button {
+  min-height: 42px;
+  font-size: 14px;
+  padding: 10px 15px;
+}
+body.win-professional .win-card-bottom strong {
+  font-size: 25px;
+  margin-top: 1px;
+}
+body.win-professional .win-small {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+}
+body.win-professional .win-contract-card .win-card-top {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+body.win-professional .win-contract-card h3 {
+  font-size: 24px;
+  line-height: 1.4;
+  margin: 15px 0 10px;
+}
+body.win-professional .win-contract-card p {
+  font-size: 16px;
+  line-height: 1.7;
+  margin-bottom: 14px;
+}
+body.win-professional .win-contract-card small {
+  font-size: 14px;
+}
+body.win-professional .win-callout {
+  padding: 19px 22px;
+  margin-bottom: 24px;
+  background: #eaf2e8;
+}
+body.win-professional .win-callout p {
+  font-size: 15px;
+  max-width: none;
+}
+body.win-professional .win-empty {
+  background: #fff;
+  border-style: solid;
+  padding: 44px 28px;
+}
+body.win-professional .win-empty h3 {
+  font-size: 24px;
+}
+body.win-professional .win-empty p {
+  font-size: 16px;
+  line-height: 1.7;
+  max-width: 560px;
+}
+body.win-professional .win-loading {
+  font-size: 17px;
+  padding: 32px;
+  background: #fff;
+  border: 1px solid var(--win-line);
+  border-radius: 12px;
+}
+body.win-professional .win-status {
+  grid-column: 2;
+  grid-row: 2;
+  padding: 12px 18px;
+  font-size: 14px;
+  border-radius: 8px;
+  background: #e9f2e9;
+}
+body.win-professional .win-status.is-error {
+  background: #fff0e3;
+}
+
+/* Profiles and contracts have room to read as documents. */
+.win-record-page {
+  border: 1px solid var(--win-line);
+  background: #fff;
+  border-radius: 15px;
+  overflow: hidden;
+}
+.win-profile-cover {
+  min-height: 155px;
+  background-color: #006c35;
+  background-image: linear-gradient(112deg, #006c35 0%, #075a33 65%, #12442f 100%);
+  position: relative;
+  overflow: hidden;
+}
+.win-profile-cover::after {
+  content: '';
+  position: absolute;
+  width: 310px;
+  height: 310px;
+  right: 35px;
+  top: -90px;
+  border: 1px solid #d5edd044;
+  border-radius: 50%;
+  box-shadow: 0 0 0 25px #ffffff08, 0 0 0 26px #ffffff22, 0 0 0 65px #ffffff08, 0 0 0 66px #ffffff1c;
+}
+.win-profile-cover img {
+  position: absolute;
+  width: 116px;
+  height: 116px;
+  right: 35px;
+  top: 20px;
+  z-index: 1;
+}
+.win-record-content > h1 {
+  font-size: 35px;
+  line-height: 1.3;
+  letter-spacing: -0.7px;
+  margin: 0 0 24px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.win-record-content {
+  padding: 30px 36px 40px;
+  font-size: 17px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.win-record-content > h2 {
+  font-size: 32px;
+  line-height: 1.3;
+  margin: 0 0 15px;
+  letter-spacing: -0.6px;
+}
+.win-record-content > h3,
+.win-record-content .win-cv-section > h3 {
+  border-top: 1px solid var(--win-line);
+  padding-top: 24px;
+  margin: 28px 0 12px;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.win-record-content > p {
+  margin-bottom: 16px;
+}
+.win-record-content .win-profile-banner {
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 12px;
+  align-items: center;
+  gap: 21px;
+}
+.win-record-content .win-profile-banner h1,
+.win-record-content .win-profile-banner h2 {
+  margin: 7px 0 5px;
+  font-size: 32px;
+  line-height: 1.25;
+  letter-spacing: -0.6px;
+}
+.win-record-content .win-profile-banner h3 {
+  font-size: 20px;
+  margin: 7px 0 8px;
+}
+.win-record-content .win-profile-banner p {
+  font-size: 16px;
+}
+.win-record-content .win-profile-banner .win-avatar.large {
+  width: 92px;
+  height: 92px;
+  border: 5px solid #fff;
+  box-shadow: 0 0 0 1px #dce5de;
+  font-size: 32px;
+  flex-shrink: 0;
+}
+.win-record-content .win-score {
+  min-width: 100px;
+  padding-left: 18px;
+  border-left: 1px solid var(--win-line);
+}
+.win-record-content .win-score strong {
+  font-size: 35px;
+}
+.win-record-content .win-score span {
+  font-size: 14px;
+}
+body.win-professional .win-actions {
+  gap: 10px;
+  margin: 24px 0;
+}
+body.win-professional .win-row {
+  font-size: 16px;
+  line-height: 1.65;
+  padding: 18px 0;
+}
+body.win-professional .win-row p {
+  font-size: 14px;
+}
+body.win-professional .win-row a {
+  font-size: 14px;
+}
+body.win-professional .win-endorsement {
+  padding: 22px;
+  margin: 14px 0;
+  line-height: 1.7;
+}
+body.win-professional .win-endorsement small {
+  font-size: 14px;
+}
+.win-record-content dl {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) 2fr;
+  gap: 12px 20px;
+  padding: 20px 0;
+}
+.win-record-content dt {
+  color: var(--win-muted);
+  font-size: 15px;
+}
+.win-record-content dd {
+  margin: 0;
+  min-width: 0;
+}
+.win-record-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 18px;
+  background: #f4f7f3;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.win-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  color: #006c35;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* Contacts keep the familiar address actions in a quiet, spacious list. */
+body.win-professional #contactsScreen .search-bar-container {
+  position: static;
+  padding: 0;
+  margin: 0 0 22px;
+  background: transparent;
+}
+body.win-professional #contactsScreen .search-bar {
+  min-height: 57px;
+  padding: 13px 18px;
+  border: 1px solid var(--win-line);
+  border-radius: 10px;
+  background: #fff;
+}
+body.win-professional #contactsScreen .search-input {
+  font-size: 17px;
+}
+body.win-professional #contactsList {
+  overflow: visible;
+  background: #fff;
+  border: 1px solid var(--win-line);
+  border-radius: 13px;
+  padding: 0;
+}
+body.win-professional #contactsList .chat-item {
+  padding: 22px 25px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #e7eee7;
+  background: transparent;
+}
+body.win-professional #contactsList .chat-item:last-child {
+  border-bottom: 0;
+}
+body.win-professional #contactsList .chat-item:hover {
+  background: #f6f9f4;
+}
+body.win-professional #contactsList .chat-name {
+  font-size: 19px;
+}
+body.win-professional #contactsList .chat-message {
+  font-size: 15px;
+}
+body.win-professional #contactsList .chat-time {
+  font-size: 14px;
+}
+body.win-professional #winAddContact {
+  min-width: 48px;
+  font-size: 27px;
+  padding: 6px 14px;
+}
+body.win-professional .empty-state {
+  min-height: 280px;
+  font-size: 17px;
+  padding: 35px 24px;
+}
+
+/* Statistics use counts and an accessible table, with bars as a visual aid. */
+.win-stat-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.win-stat-card {
+  border: 1px solid var(--win-line);
+  border-radius: 13px;
+  background: #fff;
+  padding: 25px 23px;
+}
+.win-stat-label {
+  display: block;
+  font-size: 15px;
+  color: var(--win-muted);
+  margin-bottom: 12px;
+}
+.win-stat-value {
+  display: block;
+  color: #006c35;
+  font-size: clamp(30px, 3.2vw, 44px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  overflow-wrap: anywhere;
+}
+.win-stat-description {
+  margin: 18px 0 28px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--win-muted);
+}
+.win-stat-notice {
+  border: 1px solid #e6d5b9;
+  background: #fffaef;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 20px 0;
+  font-size: 15px;
+}
+.win-stat-notice h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.win-stat-notice ul {
+  padding-left: 23px;
+}
+.win-stat-distribution {
+  background: #fff;
+  border: 1px solid var(--win-line);
+  border-radius: 14px;
+  padding: 28px;
+}
+.win-stat-section-heading h3 {
+  font-size: 24px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.win-stat-section-heading p {
+  color: var(--win-muted);
+  font-size: 15px;
+  margin-bottom: 22px;
+}
+.win-stat-table-wrap {
+  overflow-x: auto;
+}
+.win-stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  table-layout: fixed;
+}
+.win-stat-table caption {
+  font-size: 14px;
+  color: var(--win-muted);
+  text-align: left;
+  padding-bottom: 14px;
+}
+.win-stat-table thead th {
+  color: var(--win-muted);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--win-line);
+}
+.win-stat-table th:last-child {
+  width: 100px;
+  text-align: right;
+}
+.win-stat-table tbody th {
+  padding: 18px 25px 18px 0;
+  font-size: 16px;
+  font-weight: 500;
+  border-bottom: 1px solid #edf1eb;
+}
+.win-stat-table td {
+  text-align: right;
+  font-size: 19px;
+  font-weight: 600;
+  padding: 18px 0;
+  border-bottom: 1px solid #edf1eb;
+}
+.win-stat-skill-name {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-bottom: 9px;
+}
+.win-stat-bar-track {
+  display: block;
+  height: 7px;
+  max-width: 90%;
+  background: #edf3ec;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.win-stat-bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #31875a;
+}
+.win-stat-updated {
+  margin: 20px 0;
+  color: var(--win-muted);
+  font-size: 13px;
+}
+.win-stat-empty {
+  color: var(--win-muted);
+  font-size: 16px;
+  padding: 24px 0;
+}
+
+/* Keep wallet, forms, and all existing controls comfortable to read. */
+body.win-professional .win-wallet-intro h2 {
+  font-size: 34px;
+  margin: 5px 0 9px;
+}
+body.win-professional .win-wallet-intro p {
+  font-size: 17px;
+}
+body.win-professional #walletScreen .wallet-heading h2 {
+  font-size: 21px;
+}
+body.win-professional #walletScreen .wallet-native-balance {
+  max-width: none;
+}
+body.win-professional #walletScreen .win-balance-card {
+  border: 1px solid var(--win-line);
+  background: #fff;
+  padding: 28px;
+  border-radius: 14px;
+}
+body.win-professional #walletScreen .wallet-actions {
+  max-width: none;
+  border: 1px solid var(--win-line);
+  background: #fff;
+  border-radius: 12px;
+  margin-top: 18px;
+  padding: 15px 8px;
+}
+body.win-professional .wallet-action-button {
+  font-size: 16px;
+}
+body.win-professional .win-metamask-card {
+  padding: 28px;
+}
+body.win-professional .win-metamask-card h2 {
+  font-size: 26px;
+}
+body.win-professional .win-metamask-card p {
+  font-size: 16px;
+}
+body.win-professional .win-metamask-connection code,
+body.win-professional .win-wallet-address code {
+  font-size: 14px;
+}
+body.win-professional .win-wallet-address,
+body.win-professional .win-earlier-deposits {
+  font-size: 15px;
+}
+body.win-professional .win-dialog {
+  width: min(860px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  border-radius: 16px;
+}
+body.win-professional .win-dialog-header {
+  padding: 23px 30px;
+}
+body.win-professional .win-dialog-header h2 {
+  font-size: 24px;
+  line-height: 1.35;
+}
+body.win-professional .win-dialog-header button {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+body.win-professional .win-dialog-body {
+  font-size: 17px;
+  line-height: 1.7;
+  padding: 28px 30px;
+}
+body.win-professional .win-dialog-body h3 {
+  font-size: 22px;
+  margin: 26px 0 13px;
+}
+body.win-professional .win-field {
+  font-size: 16px;
+  gap: 8px;
+  margin-bottom: 21px;
+}
+body.win-professional .win-field input,
+body.win-professional .win-field select,
+body.win-professional .win-field textarea {
+  font-size: 16px;
+  min-height: 48px;
+  padding: 12px 13px;
+}
+body.win-professional .win-help {
+  font-size: 14px;
+  line-height: 1.75;
+}
+body.win-professional .win-dialog legend,
+body.win-professional .win-skill-picker label {
+  font-size: 15px;
+}
+body.win-professional .win-dialog dd {
+  font-size: 16px;
+}
+body.win-professional .win-dialog dt {
+  font-size: 12px;
+}
+body.win-professional .win-dialog pre {
+  font-size: 14px;
+}
+body.win-professional .win-address,
+body.win-professional code {
+  font-size: 14px;
+}
+body.win-professional .win-dialog-error {
+  font-size: 15px;
+}
+body.win-professional .modal {
+  position: fixed;
+  inset: 20px 0;
+  margin: auto;
+  width: min(860px, calc(100vw - 40px));
+  height: calc(100dvh - 40px);
+  max-height: calc(100dvh - 40px);
+  border: 1px solid var(--win-line);
+  border-radius: 15px;
+  box-shadow: 0 18px 80px #102c2030;
+  z-index: 100;
+  visibility: hidden;
+  transform: translateY(15px);
+  transition: transform 0.2s, opacity 0.2s, visibility 0.2s;
+  touch-action: auto;
+  text-align: left;
+}
+body.win-professional .modal.active {
+  visibility: visible;
+  transform: none;
+}
+body.win-professional:has(.modal.active)::before {
+  content: '';
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  background: #102c2070;
+  backdrop-filter: blur(3px);
+}
+body.win-professional .modal-header {
+  min-height: 74px;
+  height: auto;
+  padding: 20px 60px;
+  margin: 0;
+  border-bottom: 1px solid var(--win-line);
+}
+body.win-professional .modal-title {
+  font-size: 22px;
+}
+body.win-professional .modal .form-container {
+  padding: 24px 30px 38px;
+}
+body.win-professional .modal .form-control {
+  font-size: 17px;
+}
+body.win-professional .modal .form-group label {
+  font-size: 16px;
+}
+body.win-professional .welcome-screen {
+  min-height: 100dvh;
+  text-align: center;
+  width: 100%;
+  padding: 50px 24px 32px;
+  overflow: hidden;
+}
+body.win-professional .win-welcome-copy {
+  font-size: 17px;
+}
+body.win-professional .win-welcome-tagline {
+  font-size: 12px;
+}
+body.win-professional .welcome-screen .welcome-buttons button {
+  font-size: 16px;
+  min-height: 49px;
+}
+body.win-professional .welcome-version {
+  font-size: 12px;
+}
+
+@media (max-width: 1250px) {
+  .win-directory-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .win-directory-aside {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .win-directory-aside .win-stats {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .win-directory-aside .win-stats > div {
+    display: block;
+  }
+  .win-directory-aside .win-stats span {
+    display: block;
+  }
+  .win-stat-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.win-professional .footer {
+    width: min(570px, calc(100vw - 480px));
+  }
+  body.win-professional .header .app-name-container {
+    max-width: 125px;
+  }
+}
+@media (max-width: 1050px) {
+  body.win-professional .container {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 32px;
+    padding-left: 32px;
+    max-width: 940px;
+  }
+  body.win-professional .container:has(.header.active) .win-sidebar {
+    display: none;
+  }
+  body.win-professional .app-screen,
+  body.win-professional .win-status {
+    grid-column: 1;
+  }
+  body.win-professional .footer {
+    width: calc(100vw - 430px);
+  }
+  body.win-professional .nav-button {
+    font-size: 13px;
+  }
+  body.win-professional .header .app-name-container {
+    max-width: 90px;
+  }
+  body.win-professional .header-icons {
+    gap: 0;
+  }
+  body.win-professional .header .offline-indicator {
+    position: absolute;
+    right: 30px;
+    bottom: 1px;
+    font-size: 9px;
+  }
+}
+@media (max-width: 860px) {
+  body.win-professional {
+    --win-topbar: 130px;
+    font-size: 16px;
+  }
+  body.win-professional .container {
+    padding: 153px 18px 35px;
+    gap: 16px;
+  }
+  body.win-professional .header {
+    padding: 0 18px;
+  }
+  body.win-professional .header.active {
+    height: 64px;
+    gap: 12px;
+  }
+  body.win-professional .header #logo img {
+    width: 41px;
+    height: 41px;
+  }
+  body.win-professional .header .app-name-container {
+    max-width: calc(100vw - 200px);
+  }
+  body.win-professional .header .app-name {
+    font-size: 16px;
+  }
+  body.win-professional .header .app-name-avatar {
+    width: 30px;
+    height: 30px;
+  }
+  body.win-professional .footer {
+    top: 64px;
+    left: 0;
+    transform: none;
+    width: 100%;
+    height: 66px;
+    background: #fff;
+    border-bottom: 1px solid var(--win-line);
+  }
+  body.win-professional .nav-button {
+    padding: 8px 2px 6px;
+    font-size: 12px;
+    line-height: 1.2;
+    gap: 3px;
+  }
+  body.win-professional .nav-button::before {
+    width: 21px;
+    height: 21px;
+  }
+  body.win-professional .header .offline-indicator {
+    right: 20px;
+    bottom: 0;
+  }
+  .win-directory-heading,
+  body.win-professional .win-page-heading,
+  body.win-professional .win-contacts-heading {
+    margin-bottom: 22px;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .win-directory-heading h1,
+  body.win-professional .win-page-heading h1,
+  body.win-professional .win-contacts-heading h2 {
+    font-size: 30px;
+    letter-spacing: -0.8px;
+  }
+  .win-directory-heading p,
+  body.win-professional .win-page-heading p {
+    font-size: 15px;
+  }
+  .win-directory-heading {
+    flex-wrap: wrap;
+  }
+  .win-directory-heading > .win-button {
+    min-height: 43px;
+    font-size: 14px;
+  }
+  body.win-professional .win-page-heading {
+    flex-direction: column;
+  }
+  body.win-professional .win-search {
+    padding-left: 13px;
+    gap: 9px;
+  }
+  body.win-professional .win-search input {
+    font-size: 16px;
+  }
+  body.win-professional .win-search .win-button {
+    font-size: 14px;
+    padding: 11px 14px;
+  }
+  body.win-professional .win-segments button {
+    font-size: 14px;
+    padding: 9px 12px;
+  }
+  body.win-professional .win-list-toolbar > span {
+    font-size: 13px;
+  }
+  body.win-professional .win-profile-card,
+  body.win-professional .win-contract-card {
+    padding: 20px;
+  }
+  body.win-professional .win-profile-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 0 14px;
+    grid-template-areas: 'identity name' 'identity role' 'summary summary' 'tags tags' 'bottom bottom';
+  }
+  body.win-professional .win-profile-card .win-avatar {
+    width: 50px;
+    height: 50px;
+    font-size: 21px;
+  }
+  body.win-professional .win-profile-card .win-card-top {
+    gap: 6px;
+  }
+  body.win-professional .win-profile-card .win-card-top .win-badge {
+    font-size: 9px;
+    padding: 3px 5px;
+  }
+  body.win-professional .win-profile-card h3 {
+    font-size: 22px;
+  }
+  body.win-professional .win-profile-card .win-role {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  body.win-professional .win-profile-card .win-card-summary {
+    font-size: 16px;
+    margin-top: 16px;
+  }
+  body.win-professional .win-card-bottom {
+    gap: 10px;
+  }
+  body.win-professional .win-card-bottom .win-button {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+  .win-directory-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.win-professional .win-empty {
+    padding: 34px 20px;
+  }
+  body.win-professional .win-empty h3 {
+    font-size: 22px;
+  }
+  body.win-professional .win-callout {
+    padding: 17px;
+    gap: 12px;
+  }
+  body.win-professional .win-callout p {
+    font-size: 14px;
+  }
+  .win-profile-cover {
+    min-height: 112px;
+  }
+  .win-profile-cover::after {
+    right: -70px;
+    width: 260px;
+    height: 260px;
+  }
+  .win-profile-cover img {
+    width: 84px;
+    height: 84px;
+    right: 24px;
+    top: 14px;
+  }
+  .win-record-content {
+    padding: 23px 21px 30px;
+    font-size: 16px;
+  }
+  .win-record-content .win-profile-banner {
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .win-record-content .win-profile-banner .win-avatar.large {
+    width: 72px;
+    height: 72px;
+    font-size: 27px;
+  }
+  .win-record-content .win-profile-banner > div:not(.win-score) {
+    flex: 1 1 160px;
+  }
+  .win-record-content .win-profile-banner h1,
+  .win-record-content .win-profile-banner h2 {
+    font-size: 27px;
+  }
+  .win-record-content .win-profile-banner h3 {
+    font-size: 19px;
+  }
+  .win-record-content .win-profile-banner p {
+    font-size: 15px;
+  }
+  .win-record-content .win-score {
+    border-left: 0;
+    border-top: 1px solid var(--win-line);
+    padding: 15px 0 0;
+    margin: 0;
+    width: 100%;
+    text-align: left;
+  }
+  .win-record-content .win-score strong {
+    display: inline;
+    font-size: 30px;
+    margin-right: 9px;
+  }
+  .win-record-content > h3,
+  .win-record-content .win-cv-section > h3 {
+    font-size: 21px;
+  }
+  body.win-professional .win-actions .win-button {
+    font-size: 14px;
+    padding: 11px 13px;
+  }
+  .win-record-content dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .win-record-content dd {
+    margin-bottom: 12px;
+  }
+  body.win-professional .win-row {
+    flex-wrap: wrap;
+    font-size: 16px;
+    gap: 10px;
+  }
+  body.win-professional #contactsList .chat-item {
+    padding: 20px 16px;
+  }
+  .win-stat-overview {
+    gap: 12px;
+  }
+  .win-stat-card {
+    padding: 20px 17px;
+  }
+  .win-stat-label {
+    font-size: 14px;
+  }
+  .win-stat-value {
+    font-size: 34px;
+  }
+  .win-stat-distribution {
+    padding: 22px 18px;
+  }
+  .win-stat-section-heading h3 {
+    font-size: 23px;
+  }
+  .win-stat-table th:last-child {
+    width: 62px;
+  }
+  .win-stat-table tbody th {
+    padding-right: 12px;
+  }
+  body.win-professional .win-wallet-intro h2 {
+    font-size: 30px;
+  }
+  body.win-professional .win-metamask-card {
+    padding: 23px 20px;
+  }
+  body.win-professional .win-metamask-card h2 {
+    font-size: 24px;
+  }
+  body.win-professional #walletScreen .win-balance-card {
+    padding: 22px;
+  }
+  body.win-professional .wallet-action-button {
+    font-size: 14px;
+  }
+  body.win-professional .win-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 13px;
+  }
+  body.win-professional .win-dialog-header {
+    padding: 19px 20px;
+    gap: 12px;
+  }
+  body.win-professional .win-dialog-header h2 {
+    font-size: 22px;
+  }
+  body.win-professional .win-dialog-body {
+    padding: 23px 20px;
+    font-size: 16px;
+  }
+  body.win-professional .win-dialog-body h3 {
+    font-size: 21px;
+  }
+  body.win-professional .win-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.win-professional .modal {
+    inset: 8px 0;
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+  body.win-professional .modal .form-container {
+    padding: 20px 20px 30px;
+  }
+  body.win-professional .modal-header {
+    padding: 17px 52px;
+    min-height: 68px;
+  }
+  body.win-professional .modal-title {
+    font-size: 20px;
+  }
+  body.win-professional .welcome-screen {
+    padding-top: 35px;
+  }
+  body.win-professional .win-welcome-heading {
+    font-size: 43px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.win-professional .modal,
+  body.win-professional .win-button,
+  body.win-professional .nav-button {
+    transition: none;
+  }
+}
+
+.win-directory-aside .win-link-button {
+  display: block;
+  width: fit-content;
+  margin-top: 12px;
+}

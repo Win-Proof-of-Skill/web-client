@@ -1,3 +1,4 @@
+import { cvSections } from './win-contract-types.mjs';
 import { PDFDocument, rgb } from './external/pdf-lib.esm.min.mjs';
 import fontkit from './external/fontkit.mjs';
 import { formatUnits } from './win-domain.mjs';
@@ -110,7 +111,7 @@ export async function createProfilePdf(
       .join(' / ') || 'No skills added.'
   );
   for (const [key, value] of Object.entries(profile.details || {})) {
-    if (['headline', 'skills', 'legalName'].includes(key)) continue;
+    if (['headline', 'skills', 'legalName', 'experience', 'education', 'internships'].includes(key)) continue;
     heading(key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()));
     paragraph(pretty(value));
   }
@@ -118,20 +119,23 @@ export async function createProfilePdf(
     heading('Contact');
     paragraph(pretty(profile.contact));
   }
-  heading('Work records');
-  if (!work.length) paragraph('No work records.');
-  for (const contract of work) {
-    space(75);
-    paragraph(contract.title, 11, green);
-    paragraph(contract.publicDescription);
-    paragraph(
-      `${contract.terms.startDate} - ${contract.terms.endDate || 'Ongoing'} | ${
-        contract.effectiveApprovalStatus || contract.approvalStatus
-      } | ${contract.approvals.length}/${contract.hiringProfileIds.length} approvals`,
-      9,
-      muted
-    );
-    paragraph(`Record: ${contract.id}`, 8, muted);
+  for (const section of cvSections(profile, work)) {
+    heading(section.title);
+    if (section.details) paragraph(pretty(section.details));
+    if (!section.details && !section.records.length) paragraph('No records yet.');
+    for (const contract of section.records) {
+      space(75);
+      paragraph(contract.title, 11, green);
+      paragraph(contract.publicDescription);
+      paragraph(
+        `${contract.terms.startDate} - ${contract.terms.endDate || 'Ongoing'} | ${
+          contract.effectiveApprovalStatus || contract.approvalStatus
+        } | ${contract.approvals.length}/${contract.hiringProfileIds.length} approvals`,
+        9,
+        muted
+      );
+      paragraph(`Record: ${contract.id}`, 8, muted);
+    }
   }
   heading('Skill endorsements');
   const received = endorsements.filter((e) => e.subjectProfileId === profile.id);
@@ -141,9 +145,11 @@ export async function createProfilePdf(
     paragraph(skill(endorsement.skillId), 11, green);
     paragraph(endorsement.statement);
     paragraph(
-      `${endorsement.relationship} | ${
-        endorsement.effectiveStatus || endorsement.status
-      } | Valid until ${new Date(endorsement.validUntil).toISOString().slice(0, 10)}`,
+      `${endorsement.relationship} | ${endorsement.effectiveStatus || endorsement.status} | Valid until ${new Date(
+        endorsement.validUntil
+      )
+        .toISOString()
+        .slice(0, 10)}`,
       9,
       muted
     );
@@ -165,10 +171,13 @@ export async function createProfilePdf(
   pdf
     .getPages()
     .forEach((p, index) =>
-      p.drawText(
-        `WIN / PROOF OF SKILL                                      ${index + 1} / ${pdf.getPageCount()}`,
-        { x: margin, y: 31, font, size: 8, color: muted }
-      )
+      p.drawText(`WIN / PROOF OF SKILL                                      ${index + 1} / ${pdf.getPageCount()}`, {
+        x: margin,
+        y: 31,
+        font,
+        size: 8,
+        color: muted,
+      })
     );
   return pdf.save();
 }
@@ -180,9 +189,7 @@ export async function downloadProfilePdf(data) {
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${
-    data.profile.displayName.replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 80) || 'WIN'
-  }-profile.pdf`;
+  link.download = `${data.profile.displayName.replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 80) || 'WIN'}-profile.pdf`;
   document.body.append(link);
   link.click();
   link.remove();

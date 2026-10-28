@@ -1,7 +1,7 @@
 // Messaging is retired in the WIN wallet. Historical data remains in backups.
 export const MESSAGING_ENABLED = false;
 export const EXTERNAL_ASSETS_ENABLED = false;
-export const walletViews = Object.freeze(['profiles', 'contracts', 'contacts', 'wallet']);
+export const walletViews = Object.freeze(['profiles', 'profile', 'contracts', 'contract', 'contacts', 'wallet', 'statistics']);
 const messagingTransactions = new Set([
   'message',
   'read',

@@ -1,3 +1,5 @@
+import { createWinNavigation } from './win-navigation.mjs';
+import { setupContactForm } from './win-contacts.mjs';
 import { decodeBackup, backupAccountKey } from './win-backup.mjs';
 import { createBridgeUI } from './win-bridge-ui.mjs';
 import { sendMetaMaskTransaction } from './win-metamask.mjs';
@@ -9,7 +11,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ah'; // Also increment this when you increment version.html
+const version = 'aj'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -60,8 +62,13 @@ async function checkVersion() {
       'app.js',
       'win-payments.js',
       'win-theme.css',
+      'win-professional.css',
+      'win-navigation.mjs',
+      'win-statistics.mjs',
       'win-workspace.mjs',
       'win-contract-periods.mjs',
+      'win-contract-types.mjs',
+      'win-contacts.mjs',
       'win-domain.mjs',
       'win-security.mjs',
       'win-features.mjs',
@@ -1654,9 +1661,16 @@ class Footer {
     this.newChatButton = document.getElementById('newChatButton');
     this.lastItem = this.footer.querySelector('.last-item');
 
-    this.contactsButton.addEventListener('click', () => this.switchView('contacts'));
-    this.walletButton.addEventListener('click', () => this.switchView('wallet'));
-    document.querySelectorAll('[data-win-view]').forEach(button => button.addEventListener('click', () => this.switchView(button.dataset.winView)));
+    this.navigation = createWinNavigation({ session: () => myAccount?.keys, onNavigate: ({ view, id }) => this.switchView(view, id) });
+    this.contactsButton.addEventListener('click', () => this.navigation.navigate('contacts'));
+    document.addEventListener('click', event => {
+      const link = event.target.closest('[data-win-route]');
+      if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button) return;
+      event.preventDefault();
+      void this.navigation.navigate(link.dataset.winRoute);
+    });
+    this.walletButton.addEventListener('click', () => this.navigation.navigate('wallet'));
+    document.querySelectorAll('[data-win-view]').forEach(button => button.addEventListener('click', () => this.navigation.navigate(button.dataset.winView)));
   }
 
   open() {
@@ -1676,8 +1690,10 @@ class Footer {
     this.newChatButton.classList.remove('visible');
   }
 
-  async switchView(view) {
+  async switchView(view, id) {
     view = walletView(view);
+    const navigationToken = this.navigationToken = (this.navigationToken || 0) + 1;
+    winWorkspace.leave();
     // Store the current view for potential rollback
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'profiles';
     const previousButton = document.querySelector('.nav-button.active');
@@ -1707,11 +1723,18 @@ class Footer {
         this.walletButton.classList.add('active');
       }
   
-      if (view === 'profiles' || view === 'contracts') {
-        document.querySelector(`[data-win-view="${view}"]`).classList.add('active');
+      if (['profiles', 'profile', 'contracts', 'contract', 'statistics'].includes(view)) {
+        const navView = view === 'profile' ? 'profiles' : view === 'contract' ? 'contracts' : view;
+        document.querySelector(`[data-win-view="${navView}"]`).classList.add('active');
         document.getElementById(`${view}Screen`).classList.add('active');
       }
 
+      document.querySelectorAll('[data-win-route]').forEach(link => {
+        const active = link.dataset.winRoute === (view === 'profile' ? 'profiles' : view === 'contract' ? 'contracts' : view);
+        if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+      });
+      document.title = `${view.charAt(0).toUpperCase() + view.slice(1)} · WIN`;
+      window.scrollTo({ top: 0, behavior: 'instant' });
       // Show header and footer
       header.open();
       footer.open();
@@ -1740,7 +1763,9 @@ class Footer {
         this.closeNewChatButton();
       }
   
-      if (['profiles', 'contracts', 'wallet'].includes(view)) await winWorkspace.open(view);
+      if (navigationToken !== this.navigationToken) return;
+      if (['profiles', 'profile', 'contracts', 'contract', 'statistics', 'wallet'].includes(view)) await winWorkspace.open(view, id);
+      if (navigationToken !== this.navigationToken) return;
 
       // Update lists when switching views
       if (view === 'chats') {
@@ -2076,6 +2101,19 @@ class ContactsScreen {
     this.screen = document.getElementById('contactsScreen');
     this.contactsList = document.getElementById('contactsList');
     this.contactSearchInput = document.getElementById('contactSearchInput');
+    this.addContactForm = setupContactForm({
+      session: () => myAccount,
+      add: ({ address, name }) => {
+        if (address === normalizeAddress(myAccount.keys.address)) throw new Error('This is your own wallet address.');
+        if (myData.contacts[address]) throw new Error('This contact already exists. Edit its name from contact details.');
+        createNewContact(address);
+        myData.contacts[address].name = name;
+        try { saveState(); }
+        catch (error) { delete myData.contacts[address]; throw error; }
+        void this.updateContactsList();
+        showToast('Contact added', 2000, 'success');
+      },
+    });
 
     // Handle search input click that's on the contactsScreen
     this.contactSearchInput.addEventListener('click', () => {
@@ -2088,6 +2126,7 @@ class ContactsScreen {
   }
 
   close() {
+    this.addContactForm?.close();
     this.screen.classList.remove('active');
   }
 
@@ -2100,7 +2139,7 @@ class ContactsScreen {
     const contacts = myData.contacts;
 
     if (Object.keys(contacts).length === 0) {
-      this.contactsList.querySelector('.empty-state').style.display = 'block';
+      this.contactsList.innerHTML = '<li class="empty-state">No contacts yet. Use + to add a contact.</li>';
       return;
     }
 
@@ -2140,7 +2179,7 @@ class ContactsScreen {
     // Group metadata for rendering
     const groupMeta = [
       { key: 'acquaintances', label: 'Connections', itemClass: 'chat-item' },
-      { key: 'others', label: 'Tolled', itemClass: 'chat-item' },
+      { key: 'others', label: 'Contacts', itemClass: 'chat-item' },
       { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
     ];
 
@@ -9422,7 +9461,7 @@ class SignInModal {
       logsModal.log('⚠️ Could not retrieve storage information');
     }
     
-    await footer.switchView('profiles'); // WIN directory is the default workspace
+    await footer.navigation.resume(); // Restore a linked page after sign-in.
 
     // DAO reminders use only the metadata index and must not block sign-in.
     await refreshDaoNotificationSummary();
@@ -9765,9 +9804,11 @@ class ContactInfoModal {
     });
 
     // Add send money button handler
-    this.sendButton.addEventListener('click', () => {
-      sendAssetFormModal.username = this.usernameDiv.textContent;
-      sendAssetFormModal.open();
+    this.sendButton.addEventListener('click', async () => {
+      const address = this.currentContactAddress;
+      if (!address) return;
+      sendAssetFormModal.username = '';
+      if (await sendAssetFormModal.open()) await sendAssetFormModal.fillFromQR(longAddress(address));
     });
 
     // Add add friend button handler
@@ -10403,7 +10444,7 @@ class FriendModal {
       contact.friend === 0
         ? 'Blocked'
         : contact.friend === 1
-          ? 'Added as Tolled'
+          ? 'Contact saved'
           : contact.friend === 2
             ? 'Added as Connection'
             : 'Error updating friend status';
@@ -27414,7 +27455,6 @@ class ChatModal {
   handleFailedPaymentEditResend(messageEl) {
     const txid = messageEl.dataset.txid;
     const address = messageEl?.dataset?.address || this.address;
-    const memo = messageEl.querySelector('.payment-memo')?.textContent || '';
 
     if (!sendAssetFormModal?.modal || !sendAssetFormModal?.retryTxIdInput) return;
 
@@ -27423,8 +27463,6 @@ class ChatModal {
 
     // Hidden retry txid input (used later to remove original failed tx on successful resend)
     sendAssetFormModal.retryTxIdInput.value = txid || '';
-
-    // Memo
 
     // Recipient username (best-effort from contacts)
     sendAssetFormModal.usernameInput.value = myData.contacts[address]?.username || '';
@@ -39471,6 +39509,7 @@ const fullImageCache = new FullImageCache(thumbnailCache);
 
 // Keep signing inside the existing account boundary. UI modules receive public identity only.
 const winWorkspace = createWinWorkspace({
+  navigate: (view, id) => footer.navigation.navigate(view, id),
   session: () => myAccount?.keys ? { address: longAddress(myAccount.keys.address), evmAddress: '0x' + normalizeAddress(myAccount.keys.address), networkId: network.netid } : null,
   read: path => queryNetwork(path, AbortSignal.timeout(15000)),
   async prepare(type, action, record, payload, extra) {

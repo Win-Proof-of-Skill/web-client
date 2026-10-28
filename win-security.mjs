@@ -100,6 +100,7 @@ export function assertWinResponse(path, response) {
     }
     if (kind === 'skills' && typeof r.name !== 'string') fail();
     if (kind === 'contracts') {
+      if (r.contractType !== undefined && !['employee', 'student', 'internship'].includes(r.contractType)) fail();
       if (typeof r.title !== 'string' || !integer(r.terms?.durationMonths) ||
           !Array.isArray(r.approvals) || !Array.isArray(r.hiringProfileIds) || !r.hiringProfileIds.every(id) ||
           !id(r.workerProfileId) || !Array.isArray(r.periodOutcomes)) fail();
