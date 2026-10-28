@@ -96,12 +96,49 @@ staged with no new commit ID. Signing was not bypassed. Client/test commits,
 pushes, linked PRs, review, and deployment remain pending. Rerun against merged client main before merging
 the dependent companion tests.
 
+## Unblocking funding after an interrupted request (2026-10-28)
+
+A pending MetaMask request without a saved hash previously blocked every new
+funding. For an unresolved inbound approval/deposit, **Your transfers → Set
+aside old request** now offers an explicit acknowledgment before preserving it
+with status `needs-recovery`. Every transaction field remains available for
+recovery; this action does not cancel or resend a transaction. Known deposits,
+withdrawals, and operations with native submissions cannot use this action.
+
+After setting it aside, the user can review a separate new funding. The review
+explains that the old request may already have spent WIN and this is a new
+payment. Recovering the saved hash later does not automatically interrupt an
+active transfer. **Continue** resumes it once the active transfer is finished.
+
+Recovery labels now distinguish approval, deposit and withdrawal hashes. A
+regular token `transfer` is explicitly identified as a direct WIN transfer when
+it fails the bridge-request comparison. Sender, contract, calldata, value and
+nonce checks remain unchanged; an unrelated old transfer cannot be adopted.
+
+Client base: `235dbfe50a02137ef2a19ce53e6209c056763a35` plus these changes,
+version `2026.1028.0004` (`ae`). **27 focused tests passed**, including an offline
+browser round trip that sets aside a synthetic old request, funds/withdraws
+separately, and verifies the original request is retained without broadcast.
+Mobile recovery controls were inspected. Syntax/whitespace checks passed.
+No real transaction was submitted and no server changes were needed.
+
+Companion worktree: `/tmp/win-recovery-details-tests`, branch
+`codex/metamask-recovery-details-tests`, from published main `2fc3036`.
+Test files, exact commands and before/after results are recorded in
+`local-tests/RECOVERY-DETAILS.md` there. Shared main still lacks its documented
+instructions and runner, so focused suites ran directly. Client/test commits,
+pushes, linked PRs, review, deployment and revalidation against merged client
+main before companion integration remain pending.
+The test commit was blocked by the locked SSH signing key and missing
+ssh-askpass. Its four files remain staged with no new commit; signing was not
+bypassed.
+
 ## Deployment requirements
 
 This wallet change is client-only. It uses the existing `deposit-backed-v1`
 bridge endpoints, vault and operators; no server change or vault redeployment
 is required. Publish all changed client assets, including `win-metamask.mjs` and
-`version.html` (`2026.1028.0003`). The normal version refresh includes the new
+`version.html` (`2026.1028.0004`). The normal version refresh includes the new
 module. The checkout already uses HTTPS/WSS gateway routes.
 
 The deployed network must report a configured, enabled, operational bridge at

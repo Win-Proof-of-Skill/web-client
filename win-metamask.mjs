@@ -171,8 +171,16 @@ export async function recoverMetaMaskTransaction(op, step, hash, { rpc, save }) 
     (tx.input || tx.data)?.toLowerCase() !== request.data.toLowerCase() ||
     BigInt(tx.value) !== 0n ||
     BigInt(tx.nonce) !== BigInt(request.nonce)
-  )
+  ) {
+    if (
+      tx?.to?.toLowerCase() === WIN_TOKEN.address &&
+      /^0xa9059cbb[a-f0-9]{128}$/i.test(tx.input || tx.data || '')
+    )
+      throw new Error(
+        'This is a direct WIN transfer, not a bridge transaction. Use the approval, deposit, or withdrawal hash requested by this recovery step in MetaMask Activity.'
+      );
     throw new Error('That transaction does not match this MetaMask request.');
+  }
   request.hash = hash.toLowerCase();
   request.status = 'submitted';
   op[step + 'Hash'] = hash.toLowerCase();

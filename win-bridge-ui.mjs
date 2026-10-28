@@ -52,16 +52,38 @@ export function createBridgeUI(api) {
     !o.approvalHash &&
     !Object.keys(o.bnbTransactions || {}).length &&
     !Object.keys(o.walletRequests || {}).length;
+  const canSetAside = (o) =>
+    o.status === 'pending' &&
+    o.direction === 'in' &&
+    Boolean(o.externalAddress) &&
+    !o.nativeTx &&
+    !o.nativeConfirmed &&
+    !o.depositHash &&
+    !o.releaseHash &&
+    !Object.keys(o.bnbTransactions || {}).length &&
+    Object.entries(o.walletRequests || {}).some(([step, tx]) => ['approval', 'deposit'].includes(step) && !tx.hash);
+  const hasOtherPending = (op) => operations().some((o) => o.localId !== op.localId && o.status === 'pending');
   function history() {
     return (
       operations()
         .map((o) => {
           const unknown = Object.entries(o.walletRequests || {}).find(([, tx]) => !tx.hash);
+          const recoveryStep =
+            { approval: 'WIN approval', deposit: 'Bridge deposit', release: 'Bridge withdrawal' }[unknown?.[0]] ||
+            'MetaMask';
           const link = o.releaseHash || o.depositHash;
           return `<div class="win-row"><div><strong>${esc(formatUnits(o.amount))} WIN · ${
             o.direction === 'in' ? 'Funding' : 'Withdrawal'
           }</strong>
-        <p>${esc(o.status === 'complete' ? 'Completed' : o.status === 'canceled' ? 'Canceled' : 'Pending')}</p>
+        <p>${esc(
+          o.status === 'complete'
+            ? 'Completed'
+            : o.status === 'canceled'
+            ? 'Canceled'
+            : o.status === 'needs-recovery'
+            ? 'Set aside · kept for recovery'
+            : 'Pending'
+        )}</p>
         ${
           o.externalAddress
             ? `<small>MetaMask: ${esc(o.externalAddress)}</small>`
@@ -76,13 +98,20 @@ export function createBridgeUI(api) {
         }
         ${
           unknown
-            ? `<form data-win-recover="${esc(o.localId)}" data-step="${esc(
-                unknown[0]
-              )}"><label class="win-field">Transaction hash from MetaMask Activity<input name="hash" required pattern="0x[a-fA-F0-9]{64}" autocomplete="off"></label><p class="win-help">The wallet response was interrupted. Recover the existing transaction before retrying.</p><button class="win-button secondary">Recover transaction</button></form>`
+            ? `<form data-win-recover="${esc(o.localId)}" data-step="${esc(unknown[0])}"><label class="win-field">${esc(
+                recoveryStep
+              )} transaction hash from MetaMask Activity<input name="hash" required pattern="0x[a-fA-F0-9]{64}" autocomplete="off"></label><p class="win-help">The wallet response was interrupted. Choose the transaction for this step. An ordinary WIN transfer cannot recover it.</p><button class="win-button secondary">Recover transaction</button></form>`
+            : ''
+        }
+        ${
+          canSetAside(o)
+            ? `<details><summary>Set aside old request</summary><p class="win-help">This keeps the request available for recovery. It does not cancel a BNB transaction, and the old request may already have spent WIN. New funding is a separate payment.</p><form data-win-set-aside="${esc(
+                o.localId
+              )}"><label><input type="checkbox" name="acknowledge" required> I checked MetaMask Activity and want to make a separate new funding.</label><button class="win-button secondary">Set aside request</button></form></details>`
             : ''
         }</div>
         ${
-          o.status === 'pending' && !unknown
+          ['pending', 'needs-recovery'].includes(o.status) && !unknown
             ? `<button class="win-button secondary" data-bridge-continue="${esc(o.localId)}">Continue</button>${
                 canCancel(o)
                   ? `<button class="win-link-button" data-bridge-cancel="${esc(o.localId)}">Cancel draft</button>`
@@ -250,6 +279,21 @@ export function createBridgeUI(api) {
   });
   dialog.addEventListener('submit', (e) => {
     const form = e.target;
+    if (form.dataset.winSetAside) {
+      e.preventDefault();
+      const acknowledged = new FormData(form).get('acknowledge') === 'on';
+      void guard(async () => {
+        const op = operations().find((o) => o.localId === form.dataset.winSetAside);
+        if (!op || !canSetAside(op)) throw new Error('This transfer cannot be set aside.');
+        if (!acknowledged) throw new Error('Please acknowledge that new funding is a separate payment.');
+        // Keep all transaction evidence. Persist before changing the displayed state.
+        api.save({ ...op, status: 'needs-recovery' });
+        stop();
+        await open('in', source);
+        status.textContent = 'Request set aside and kept in Your transfers. You can now review new funding.';
+      });
+      return;
+    }
     if (form.dataset.winRecover) {
       e.preventDefault();
       // Disabled controls are omitted from FormData, so capture before guard locks the form.
@@ -260,6 +304,11 @@ export function createBridgeUI(api) {
         if (!op) throw new Error('Transfer is unavailable.');
         await recoverMetaMaskTransaction(op, form.dataset.step, hash, api);
         renderHistory();
+        if (op.status === 'needs-recovery' || hasOtherPending(op)) {
+          status.textContent =
+            'Transaction hash saved. Finish any active transfer, then choose Continue for this request.';
+          return;
+        }
         await progress(op);
       });
       return;
@@ -315,6 +364,11 @@ export function createBridgeUI(api) {
       }: <strong>${esc(formatUnits(q.receive))} WIN</strong></p>
         <p>${direction === 'in' ? 'Funding wallet debit' : 'App balance debit'}: ${esc(formatUnits(q.debit))} WIN</p>
         <p>${direction === 'in' ? 'From' : 'To'}: <code class="win-address">${esc(address)}</code></p>
+        ${
+          direction === 'in' && operations().some((o) => o.status === 'needs-recovery')
+            ? '<p class="win-help">An older request is set aside and may already have spent WIN. This is a separate new funding, not a retry of that request.</p>'
+            : ''
+        }
         <p class="win-help">${
           source === 'app' ? 'This wallet' : 'MetaMask'
         } confirms the BNB network fee. Keep this window open while confirmations finish.</p><button class="win-button" data-bridge-confirm>Confirm ${
@@ -376,6 +430,12 @@ export function createBridgeUI(api) {
         document.getElementById('winBridgeReview')?.replaceChildren();
       } else op = operations().find((o) => o.localId === resume.dataset.bridgeContinue);
       if (!op) throw new Error('Transfer is unavailable.');
+      if (!confirm && op.status === 'needs-recovery') {
+        if (hasOtherPending(op)) throw new Error('Finish your pending transfer before continuing this one.');
+        const resumed = { ...op, status: 'pending' };
+        api.save(resumed);
+        op = resumed;
+      }
       if (op.externalAddress && !wallet.address() && !(op.direction === 'in' && op.depositHash)) {
         await wallet.connect();
         renderConnection();
