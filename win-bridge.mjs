@@ -4,6 +4,7 @@ import { WIN_TOKEN } from './win-domain.mjs';
 export const FEE_RECIPIENT = '9fe734826be44b76f06d1d3262130dce45076a3c000000000000000000000000';
 export const RESERVE = '6' + '0'.repeat(63);
 export const BRIDGE_ACCOUNTING = 'deposit-backed-v1';
+export const bridgeBnbAddress = (op) => op.externalAddress || op.evmAddress;
 const hex = (bytes) => Array.from(bytes, (x) => x.toString(16).padStart(2, '0')).join('');
 const bytes = (h) => {
   h = h.replace(/^0x/, '');
@@ -157,7 +158,7 @@ export async function attest(c, kind, operation, fetcher = fetch) {
         v = r.value;
       const expected = {
         id: kind === 'Deposit' ? v.id : '0x' + operation.id,
-        recipient: kind === 'Deposit' ? '0x' + operation.address : operation.evmAddress,
+        recipient: kind === 'Deposit' ? '0x' + operation.address : bridgeBnbAddress(operation),
         amount: operation.amount,
       };
       if (!/^0x[a-f0-9]{64}$/.test(expected.id)) continue;

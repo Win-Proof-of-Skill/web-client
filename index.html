@@ -181,10 +181,10 @@
       <button class="floating-button" id="newChatButton" hidden inert data-win-retired="messaging" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
-        <section class="win-wallet-intro"><span class="win-kicker">YOUR WIN WALLET</span><h2>Built for your next chapter.</h2><p>One identity. Separate balances on WIN and BNB Chain.</p></section>
-        <section class="win-wallet-identity"><label>Native WIN public address</label><code id="winNativeAddress"></code><button type="button" class="win-link-button" data-win-action="copy-native">Copy address</button></section>
+        <section class="win-wallet-intro"><span class="win-kicker">YOUR WIN WALLET</span><h2>Built for your next chapter.</h2><p>Your WIN. Ready for what comes next.</p></section>
+
         <div class="wallet-heading">
-          <h2>Native WIN</h2>
+          <h2>Your balance</h2>
           <div class="wallet-balance-status">
             <button type="button" class="refresh-button" id="refreshBalance" aria-label="Refresh wallet balances">↻</button>
             <time id="walletBalanceUpdated">Not updated yet</time>
@@ -200,7 +200,7 @@
             <!-- List of native assets will be inserted here -->
           </div>
         </div>
-        <div class="wallet-actions" role="group" aria-label="Native WIN actions">
+        <div class="wallet-actions" role="group" aria-label="WIN wallet actions">
           <button type="button" class="wallet-action-button" id="openSendAssetFormModal">
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Send</span>
@@ -214,15 +214,15 @@
             <span class="action-label">History</span>
           </button>
           <div class="wallet-actions-break"></div>
-          <button type="button" class="wallet-action-button" id="openBuyButton" aria-label="Buy WIN (opens in a new tab)">
+          <button type="button" class="wallet-action-button" id="openBuyButton" hidden aria-label="Buy WIN (opens in a new tab)">
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Buy</span>
           </button>
-          <button type="button" class="wallet-action-button" id="openSellButton" aria-label="Sell WIN (opens in a new tab)">
+          <button type="button" class="wallet-action-button" id="openSellButton" hidden aria-label="Sell WIN (opens in a new tab)">
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Sell</span>
           </button>
-          <button type="button" class="wallet-action-button" id="openFaucetBridgeButton">
+          <button type="button" class="wallet-action-button" id="openFaucetBridgeButton" hidden>
             <span class="action-icon" aria-hidden="true"></span>
             <span class="action-label">Faucet</span>
           </button>
@@ -245,7 +245,25 @@
             </button>
           </div>
         </div>
-        <section class="win-bnb-card"><div class="win-card-top"><span class="win-kicker">BNB CHAIN · MAINNET</span><button class="win-link-button" data-win-action="bnb-refresh" aria-label="Refresh BNB-chain WIN balance">↻ Refresh</button></div><h2>WIN on BNB Chain</h2><strong class="win-bnb-balance" id="winBnbBalance">Not loaded</strong><p>Fund your wallet with the real WIN token.</p><label>BNB receiving address</label><code id="winBnbAddress"></code><div class="win-actions"><button class="win-button" data-open-win-bridge>⇄ Convert WIN</button><button class="win-button" data-win-action="fund">+ Fund wallet</button><button class="win-button secondary" data-win-action="copy-bnb">Copy address</button></div><p class="win-help">Convert at 1:1 with a separate 0.5% native WIN fee. BNB gas is paid separately. Conversion is available after the bridge deployment is activated.</p><a href="https://bscscan.com/token/0x8a27363dd26f78b09014338e106b16055fcb9799" target="_blank" rel="noopener noreferrer">View WIN token contract ↗</a><div id="winBnbHistory"></div></section>
+        <section class="win-metamask-card" aria-labelledby="winMetaMaskHeading">
+          <span class="win-kicker">CONNECTED WALLET</span>
+          <h2 id="winMetaMaskHeading">Move WIN with MetaMask.</h2>
+          <p>Add WIN from MetaMask or send it back whenever you need. Funding becomes spendable in the app after confirmation.</p>
+          <div class="win-metamask-connection">
+            <code id="winMetaMaskAddress" aria-live="polite">No wallet connected</code>
+            <button type="button" class="win-button secondary" data-win-connect-metamask>Connect MetaMask</button>
+            <button type="button" class="win-link-button" data-win-disconnect-metamask hidden>Disconnect</button>
+          </div>
+          <div class="win-actions">
+            <button type="button" class="win-button" data-win-fund>+ Fund wallet</button>
+            <button type="button" class="win-button secondary" data-win-withdraw>Withdraw to MetaMask ↗</button>
+            <button type="button" class="win-link-button" data-win-transfers>View transfers</button>
+          </div>
+          <p class="win-help">A 0.5% WIN fee applies. MetaMask needs BNB for network fees on BNB Smart Chain.</p>
+          <p id="winWalletStatus" role="status"></p>
+          <details class="win-earlier-deposits"><summary>Earlier deposits</summary><p>Already sent WIN to this app’s BNB receiving address? Add those funds to your app balance here. That address needs BNB for network fees.</p><button type="button" class="win-link-button" data-win-fund-existing>Add earlier deposits</button></details>
+        </section>
+        <details class="win-wallet-address"><summary>Your WIN app address</summary><code id="winNativeAddress"></code><button type="button" class="win-link-button" data-win-action="copy-native">Copy address</button></details>
       </div>
 
       <section class="app-screen win-screen" id="profilesScreen" data-view="profiles" aria-label="Profile directory">

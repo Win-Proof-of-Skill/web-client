@@ -1,5 +1,6 @@
 import { decodeBackup, backupAccountKey } from './win-backup.mjs';
 import { createBridgeUI } from './win-bridge-ui.mjs';
+import { sendMetaMaskTransaction } from './win-metamask.mjs';
 import { bnbRpc } from './win-bnb.mjs';
 import { hashHex, validateBridgeConfig } from './win-bridge.mjs';
 import { EXTERNAL_ASSETS_ENABLED, MESSAGING_ENABLED, assertWalletTransaction, walletView } from './win-features.mjs';
@@ -8,7 +9,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'aa'; // Also increment this when you increment version.html
+const version = 'ab'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -67,6 +68,7 @@ async function checkVersion() {
       'win-bridge.mjs',
       'win-bridge-flow.mjs',
       'win-bridge-ui.mjs',
+      'win-metamask.mjs',
       'win-bnb.mjs',
       'win-pdf.mjs',
       'external/pdf-lib.esm.min.mjs',
@@ -579,6 +581,7 @@ function newDataRecord(myAccount) {
  * This function centralizes the clearing of user data to ensure consistency
  */
 function clearMyData() {
+  bridgeUI.reset();
   chatModal.resetPendingMessageConfirmations();
   myData = null;
   myAccount = null;
@@ -2405,21 +2408,19 @@ class WalletScreen {
       }
 
       this.assetsList.innerHTML = walletData.assets
+        .filter(isLibAsset)
         .map((asset) => {
-          const assetUsdPrice = getAssetUsdPrice(asset);
           const assetNetworth = calculateAssetUsdValue(asset);
-          const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
           const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
           const [whole, fraction] = formatDisplayAmount(big2str(asset.balance, 18), 6).split('.');
           const assetQuantityText = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '');
           return `
-                <div class="asset-item">
+                <div class="asset-item win-balance-card">
                     <img src="./media/win-logo.svg" class="asset-logo" alt="WIN">
-                    <div class="asset-info">
-                        <div class="asset-name">${escapeHtml(asset.name)}</div>
-                        <div class="asset-symbol">1 ${escapeHtml(asset.symbol)} = ${assetPriceText}</div>
+                    <div class="asset-balance">
+                        <span class="wallet-native-quantity">${assetQuantityText} WIN</span>
+                        <span class="wallet-native-usd" title="Estimate using the WIN network’s configured USD rate">${assetNetworthText} <small>estimated USD</small></span>
                     </div>
-                    <div class="asset-balance"><span class="wallet-native-quantity">${assetQuantityText} ${escapeHtml(asset.symbol)}</span><span class="wallet-native-usd">${assetNetworthText}</span></div>
                 </div>
             `;
         })
@@ -39793,11 +39794,14 @@ const winWorkspace = createWinWorkspace({
 const bridgeSession = () => myAccount?.keys ? { address: longAddress(myAccount.keys.address), evmAddress: '0x'+normalizeAddress(myAccount.keys.address), networkId: network.netid } : null;
 function saveBridgeOperation(op) {
   if (bridgeSession()?.address !== op.address || network.netid !== op.networkId) throw new Error('Bridge wallet changed');
-  myData.bridgeOperations ??= [];
-  const index = myData.bridgeOperations.findIndex(o => o.localId === op.localId);
+  const previous = myData.bridgeOperations;
+  const next = [...(previous || [])];
+  const index = next.findIndex(o => o.localId === op.localId);
   const copy = parse(stringify(op));
-  if (index < 0) myData.bridgeOperations.push(copy); else myData.bridgeOperations[index] = copy;
-  saveState();
+  if (index < 0) next.push(copy); else next[index] = copy;
+  myData.bridgeOperations = next;
+  try { saveState(); }
+  catch (error) { myData.bridgeOperations = previous; throw error; }
 }
 const bridgeUI = createBridgeUI({
   session: bridgeSession,
@@ -39805,6 +39809,10 @@ const bridgeUI = createBridgeUI({
   read: path => queryNetwork(path, AbortSignal.timeout(15000)),
   operations: () => (myData?.bridgeOperations || []).filter(o => o.networkId === network.netid),
   save: saveBridgeOperation,
+  async refresh() {
+    if (myData?.wallet) myData.wallet.timestamp = 0;
+    await walletScreen.updateWalletView();
+  },
   async rebroadcast(op) {
     for (const tx of Object.values(op.bnbTransactions || {})) {
       if (await bnbRpc('eth_getTransactionReceipt', [tx.hash])) continue;
@@ -39816,6 +39824,13 @@ const bridgeUI = createBridgeUI({
     const account = myAccount;
     const check = () => { if (account !== myAccount || bridgeSession()?.address !== op.address) throw new Error('Signing wallet changed'); };
     check();
+    if (op.externalAddress) {
+      await sendMetaMaskTransaction(op, step, to, data, {
+        wallet: bridgeUI.wallet, save: saveBridgeOperation,
+        isCurrent: () => account === myAccount && bridgeSession()?.address === op.address,
+      });
+      return;
+    }
     const existing = op.bnbTransactions?.[step];
     if (existing) { await bnbRpc('eth_sendRawTransaction', [existing.raw]); return; }
     if (BigInt(await bnbRpc('eth_chainId')) !== 56n) throw new Error('BNB mainnet required');

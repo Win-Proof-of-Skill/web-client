@@ -807,28 +807,7 @@ code {
   font-size: 12px;
   color: var(--win-muted);
 }
-.win-wallet-identity {
-  text-align: left;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--win-line);
-  border-radius: 10px;
-  padding: 17px;
-  background: white;
-  margin-bottom: 22px;
-}
-.win-wallet-identity label {
-  font-size: 11px;
-  width: 100%;
-  color: var(--win-muted);
-}
-.win-wallet-identity code {
-  flex: 1;
-  min-width: 190px;
-}
-.win-bnb-card {
+.win-metamask-card {
   background: white;
   border: 1px solid var(--win-line);
   border-radius: 14px;
@@ -836,47 +815,84 @@ code {
   margin: 28px 0 0;
   padding: 25px;
 }
-.win-bnb-card h2 {
-  font-size: 17px;
-  margin: 20px 0 10px;
+.win-metamask-card h2 {
+  font-size: 23px;
+  margin: 14px 0 10px;
+  letter-spacing: -0.5px;
 }
-.win-bnb-balance {
-  font-size: 32px;
-  display: block;
-  color: #006c35;
+.win-metamask-card p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--win-muted);
+}
+.win-metamask-connection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  background: var(--win-paper);
+  border: 1px solid var(--win-line);
+  border-radius: 9px;
+  margin: 22px 0;
+  padding: 16px;
+}
+.win-metamask-connection code {
+  flex: 1 1 220px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
-.win-bnb-card > p {
+.win-earlier-deposits,
+.win-wallet-address {
+  border-top: 1px solid var(--win-line);
+  padding-top: 16px;
+  margin-top: 20px;
   font-size: 12px;
   color: var(--win-muted);
 }
-.win-bnb-card label {
+.win-earlier-deposits summary,
+.win-wallet-address summary {
+  cursor: pointer;
+}
+.win-wallet-address code {
   display: block;
-  font-size: 10px;
+  margin: 14px 0;
+  overflow-wrap: anywhere;
+}
+#winWalletStatus:empty {
+  display: none;
+}
+#walletScreen .win-balance-card {
+  align-items: center;
+  padding: 24px;
+}
+#walletScreen .wallet-native-balance {
+  max-width: none;
+}
+#walletScreen .win-balance-card .asset-logo {
+  width: 60px;
+  height: 60px;
+}
+#walletScreen .win-balance-card .wallet-native-quantity {
+  font-size: clamp(27px, 5vw, 40px);
+  font-weight: 600;
+  letter-spacing: -1px;
+}
+#walletScreen .win-balance-card .wallet-native-usd {
+  font-size: 16px;
   color: var(--win-muted);
-  margin: 25px 0 7px;
+  letter-spacing: 0;
 }
-.win-bnb-card code {
-  display: block;
-  font-size: 12px;
-}
-.win-bnb-card > a {
+#walletScreen .win-balance-card .wallet-native-usd small {
   font-size: 11px;
-  color: #006c35;
+  font-weight: 400;
 }
-.win-bnb-card .win-help {
-  padding: 12px;
-  border-radius: 6px;
-  background: #f5f6ec;
-  font-size: 11px;
+#winBridgeTransfers .win-row {
+  flex-wrap: wrap;
 }
-.win-funding-network {
-  background: #f1f5eb;
-  border-radius: 10px;
-  padding: 18px;
-}
-.win-funding-network h3 {
-  margin: 12px 0;
+#winBridgeTransfers .win-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  flex: 1 1 260px;
 }
 .wallet-heading {
   padding: 0 !important;
@@ -1191,10 +1207,10 @@ code {
   .win-wallet-intro h2 {
     font-size: 27px;
   }
-  .win-bnb-card {
+  .win-metamask-card {
     padding: 20px;
   }
-  .win-wallet-identity code {
+  .win-metamask-connection code {
     font-size: 10px;
   }
   .welcome-screen {
@@ -1264,11 +1280,25 @@ code {
 }
 
 /* Retired features stay inaccessible even when legacy code toggles a class. */
-[data-win-retired="messaging"] { display: none !important; }
+[data-win-retired='messaging'] {
+  display: none !important;
+}
 
-[data-win-retired="external-assets"] { display: none !important; }
+[data-win-retired='external-assets'] {
+  display: none !important;
+}
 
-[data-win-retired="account-controls"] { display:none !important; }
+[data-win-retired='account-controls'] {
+  display: none !important;
+}
 #winBridgeDialog code,
-#winBridgeDialog .win-row small { overflow-wrap: anywhere; }
-#winBridgeReview:not(:empty) { margin-top: 20px; padding: 20px; background: var(--win-soft, #f3f7f1); border: 1px solid var(--win-line); border-radius: 12px; }
+#winBridgeDialog .win-row small {
+  overflow-wrap: anywhere;
+}
+#winBridgeReview:not(:empty) {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--win-soft, #f3f7f1);
+  border: 1px solid var(--win-line);
+  border-radius: 12px;
+}

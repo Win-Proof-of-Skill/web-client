@@ -1,14 +1,11 @@
 import { assertWinResponse } from './win-security.mjs';
 import {
-  WIN_TOKEN,
   controls,
   formatUnits,
-  parseAmount,
   isId,
   profileContent,
   contractContent,
 } from './win-domain.mjs';
-import { tokenBalance, connectBnb, fundBnb, checkDeposit } from './win-bnb.mjs';
 const escape = (value) =>
   String(value ?? '').replace(
     /[&<>"']/g,
@@ -704,116 +701,6 @@ export function createWinWorkspace(api) {
     await downloadProfilePdf(snapshot);
     note('Profile PDF downloaded.');
   }
-  function deposits() {
-    try {
-      return JSON.parse(localStorage.getItem('win-bnb-deposits:' + session().address) || '[]');
-    } catch {
-      return [];
-    }
-  }
-  async function refreshBnb() {
-    const initial = session();
-    if (!initial) return;
-    const target = document.getElementById('winBnbBalance');
-    target.textContent = 'Loading…';
-    const amount = await tokenBalance(initial.evmAddress);
-    if (!sameSession(initial)) return;
-    target.textContent = formatUnits(amount) + ' WIN';
-    const history = deposits();
-    await Promise.all(
-      history
-        .filter((d) => ['pending', 'unverified'].includes(d.status))
-        .map(async (d) => {
-          try {
-            d.status = await checkDeposit(d);
-          } catch {
-            /* Keep pending for the next explicit refresh. */
-          }
-        })
-    );
-    if (!sameSession(initial)) return;
-    localStorage.setItem('win-bnb-deposits:' + initial.address, JSON.stringify(history));
-    renderDeposits(history);
-  }
-  function renderDeposits(history) {
-    document.getElementById('winBnbHistory').innerHTML = history
-      .map(
-        (d) =>
-          `<div class="win-row"><div><strong>${escape(formatUnits(d.amount))} WIN</strong><p>${escape(
-            d.status
-          )} · ${date(d.createdAt)}</p></div><a href="https://bscscan.com/tx/${escape(
-            d.hash
-          )}" target="_blank" rel="noopener noreferrer">View transaction ↗</a></div>`
-      )
-      .join('');
-  }
-  async function fundingForm() {
-    const initial = session();
-    modal(
-      'Fund with WIN on BNB Chain',
-      form(
-        'funding',
-        `<div class="win-funding-network">${badge(
-          'BNB Chain · Mainnet'
-        )}<h3>Real WIN. Your wallet.</h3><p>Transfer WIN from your browser wallet to your WIN wallet’s BNB address.</p></div><dl><dt>Receiving address</dt><dd class="win-address">${escape(
-          initial.evmAddress
-        )}</dd><dt>WIN token contract</dt><dd class="win-address">${WIN_TOKEN.address}</dd></dl>${input(
-          'amount',
-          'Amount in WIN',
-          '',
-          'inputmode="decimal" required placeholder="0.00"'
-        )}<p class="win-help">The sending wallet needs WIN and BNB for gas. Your wallet will display the final transaction for approval. BNB-chain WIN cannot yet pay native WIN network fees.</p>`,
-        'Connect source wallet & review'
-      ).replace(
-        '<p class="win-help">Published profile and work records are public. A native WIN network fee applies.</p>',
-        ''
-      )
-    );
-  }
-  async function fundingReview(data) {
-    const initial = session();
-    const amount = parseAmount(data.get('amount'));
-    const provider = window.ethereum;
-    const from = await connectBnb(provider);
-    if (!sameSession(initial)) throw new Error('Receiving wallet changed. Start again.');
-    context = { funding: { provider, from, to: initial.evmAddress, amount, initial } };
-    modal(
-      'Review BNB Chain deposit',
-      `<h3>${escape(formatUnits(amount))} WIN</h3><dl><dt>From</dt><dd class="win-address">${escape(
-        from
-      )}</dd><dt>To your wallet</dt><dd class="win-address">${escape(
-        initial.evmAddress
-      )}</dd><dt>Network</dt><dd>BNB Chain mainnet (56)</dd><dt>Token contract</dt><dd class="win-address">${
-        WIN_TOKEN.address
-      }</dd></dl><p class="win-help">Your browser wallet will ask you to approve the token transfer and BNB gas fee.</p>${button(
-        'fund-submit',
-        'Continue in wallet'
-      )}`
-    );
-  }
-  async function submitFunding() {
-    const f = context.funding;
-    if (!sameSession(f.initial)) throw new Error('Receiving wallet changed. Start again.');
-    const deposit = await fundBnb(f.provider, f.from, f.to, f.amount, () => sameSession(f.initial));
-    const key = 'win-bnb-deposits:' + f.initial.address;
-    let history = [];
-    try {
-      history = JSON.parse(localStorage.getItem(key) || '[]');
-    } catch {}
-    localStorage.setItem(key, JSON.stringify([deposit, ...history].slice(0, 100)));
-    if (!sameSession(f.initial)) return;
-    modal(
-      'Deposit submitted',
-      `<h3>Waiting for BNB Chain confirmation</h3><p>${escape(
-        formatUnits(f.amount)
-      )} WIN is being sent to your wallet. Refresh the balance to check confirmation.</p><p class="win-address">${escape(
-        deposit.hash
-      )}</p><a class="win-button" href="https://bscscan.com/tx/${
-        deposit.hash
-      }" target="_blank" rel="noopener noreferrer">View on BscScan ↗</a>`
-    );
-    if (sameSession(f.initial)) renderDeposits([deposit, ...history]);
-  }
   async function act(action, id) {
     if (action === 'create-profile') await profileForm();
     else if (action === 'profile') await showProfile(id);
@@ -858,13 +745,8 @@ export function createWinWorkspace(api) {
           )}${area('description', 'Description')}`
         )
       );
-    else if (action === 'fund') await fundingForm();
-    else if (action === 'fund-submit') await submitFunding();
-    else if (action === 'bnb-refresh') await refreshBnb();
-    else if (action === 'copy-native' || action === 'copy-bnb') {
-      await navigator.clipboard.writeText(
-        action === 'copy-native' ? session().address : session().evmAddress
-      );
+    else if (action === 'copy-native') {
+      await navigator.clipboard.writeText(session().address);
       note('Public wallet address copied.');
     }
   }
@@ -930,7 +812,6 @@ export function createWinWorkspace(api) {
           kind: data.get('kind'),
           description: data.get('description').trim(),
         });
-      else if (f.dataset.winForm === 'funding') await fundingReview(data);
     });
   });
   let timer,
@@ -983,13 +864,6 @@ export function createWinWorkspace(api) {
     if (!initial) return;
     if (view === 'wallet') {
       document.getElementById('winNativeAddress').textContent = initial.address;
-      document.getElementById('winBnbAddress').textContent = initial.evmAddress;
-      renderDeposits(deposits());
-      refreshBnb().catch((error) => {
-        if (!sameSession(initial)) return;
-        document.getElementById('winBnbBalance').textContent = 'Unavailable';
-        note(error.message, true);
-      });
       return;
     }
     const screen = document.getElementById(view + 'Screen');

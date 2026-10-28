@@ -3,18 +3,19 @@
 The client now opens the WIN profile directory after wallet sign-in. The emerald
 and white identity, geometric seal, welcome screen, responsive directory,
 contracts workspace, wallet panels, and exported profiles follow the WIN logo.
-Existing account creation, encrypted account storage, backups, and messaging
-remain the account boundary. The workspace receives public identity only;
+Existing account creation, encrypted account storage and backups
+remain the account boundary. Messaging is retired. The workspace receives public identity only;
 `app.js` retains signing access.
 
 ## Available flows
 
-- Create a wallet with the existing registration flow; copy its native WIN address
-  and corresponding BNB Chain address from Wallet.
-- Receive real WIN on BNB Chain, or fund from a connected EIP-1193 wallet. The
-  token is `0x8a27363dd26f78b09014338e106b16055fcb9799`, chain ID 56, 18 decimals,
-  matching `server/src/config/bridgeConfig.ts`. Only the user-approved ERC-20
-  transfer is requested. No unlimited allowance or native BNB transfer is used.
+- Create an app wallet and copy its WIN public address from Wallet.
+- Connect MetaMask to fund the spendable WIN balance from BNB Smart Chain or
+  withdraw WIN back to MetaMask. The token is
+  `0x8a27363dd26f78b09014338e106b16055fcb9799`, chain ID 56, 18 decimals.
+  The bridge handles native issuance/burning in the background; the UI shows one
+  WIN balance and estimated USD. See the [wallet handoff](win-bridge-wallet.md)
+  for fees, pending transfers, and deployment requirements.
 - Create and update person, company, organization, government, university, or
   school profiles. Add registered skills to person profiles; existing CV fields
   are retained on edits and shown in profile details.
@@ -44,22 +45,15 @@ New registries are created lazily; a missing registry returns an empty directory
 Exceptions and malformed registry state remain errors.
 
 The gateway in `network.js` must point to that upgraded network. An HTTPS client
-requires HTTPS/WSS gateway endpoints; the current checkout has an HTTP gateway.
-No production gateway or validator was restarted or deployed in this task.
+requires HTTPS/WSS endpoints; the checkout uses the wallet's HTTPS/WSS routes.
 
-BNB-chain WIN and native WIN are separate balances. As requested, this release
-supports holding/funding real WIN on BNB Chain first. The native reserve bridge
-remains disabled. Profile, skill, endorsement, and contract fees require native
-WIN received from an already funded native wallet. BNB deposits cannot pay those
-fees until a working bridge is deployed. New wallets do not mint tokens.
+Funding and withdrawals require the existing operational deposit-backed bridge.
+No initial native balance or prefunded native reserve is needed. MetaMask pays
+BNB gas and approves the exact token allowance before a vault deposit. Pending
+operations remain in the encrypted app account and can be resumed after reload.
+The [wallet handoff](win-bridge-wallet.md) is the current funding reference.
 
-Funding checks the chain, source account, exact amount, balance, and transfer
-simulation before requesting the user's signature. Confirmation requires the
-matching token Transfer event and two block confirmations. Pending deposit
-metadata is retained locally and refreshed by the wallet refresh button. No
-private keys are sent to the browser wallet or BNB RPC.
-
-## Validation and review status
+## Original workspace validation and review record
 
 Tested client base: `9bbe785f3e04ed4e94674cddb8ea1b6129a3506d` plus this working tree.
 Tested server base: `face5925069917f23d370637778dc18c88788087` plus this working tree.
