@@ -1,5 +1,6 @@
+import { createContactFeed, createFeedTransport } from './win-feed.mjs';
 import { createWinNavigation } from './win-navigation.mjs';
-import { setupContactForm } from './win-contacts.mjs';
+import { createConnectionsUI } from './win-connections.mjs';
 import { decodeBackup, backupAccountKey } from './win-backup.mjs';
 import { createBridgeUI } from './win-bridge-ui.mjs';
 import { sendMetaMaskTransaction } from './win-metamask.mjs';
@@ -11,7 +12,7 @@ import { createWinWorkspace } from './win-workspace.mjs';
 import { REGISTRIES, objectFee, receiptState as winReceiptState } from './win-domain.mjs';
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'aj'; // Also increment this when you increment version.html
+const version = 'ak'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -63,6 +64,8 @@ async function checkVersion() {
       'win-payments.js',
       'win-theme.css',
       'win-professional.css',
+      'win-feed.mjs',
+      'win-connections.mjs',
       'win-navigation.mjs',
       'win-statistics.mjs',
       'win-workspace.mjs',
@@ -589,6 +592,11 @@ function newDataRecord(myAccount) {
  * This function centralizes the clearing of user data to ensure consistency
  */
 function clearMyData() {
+  contactFeed.reset();
+  connectionUI.reset();
+  profileContext = { account: null, profiles: [], selected: null };
+  feedIdentity = null;
+  feedIdentityAccount = null;
   bridgeUI.reset();
   chatModal.resetPendingMessageConfirmations();
   myData = null;
@@ -1694,6 +1702,7 @@ class Footer {
     view = walletView(view);
     const navigationToken = this.navigationToken = (this.navigationToken || 0) + 1;
     winWorkspace.leave();
+    contactFeed.leave();
     // Store the current view for potential rollback
     const previousView = document.querySelector('.app-screen.active')?.id?.replace('Screen', '') || 'profiles';
     const previousButton = document.querySelector('.nav-button.active');
@@ -1723,7 +1732,7 @@ class Footer {
         this.walletButton.classList.add('active');
       }
   
-      if (['profiles', 'profile', 'contracts', 'contract', 'statistics'].includes(view)) {
+      if (['profiles', 'profile', 'contracts', 'contract', 'statistics', 'feed'].includes(view)) {
         const navView = view === 'profile' ? 'profiles' : view === 'contract' ? 'contracts' : view;
         document.querySelector(`[data-win-view="${navView}"]`).classList.add('active');
         document.getElementById(`${view}Screen`).classList.add('active');
@@ -1764,6 +1773,7 @@ class Footer {
       }
   
       if (navigationToken !== this.navigationToken) return;
+      if (view === 'feed') await contactFeed.open();
       if (['profiles', 'profile', 'contracts', 'contract', 'statistics', 'wallet'].includes(view)) await winWorkspace.open(view, id);
       if (navigationToken !== this.navigationToken) return;
 
@@ -2101,24 +2111,6 @@ class ContactsScreen {
     this.screen = document.getElementById('contactsScreen');
     this.contactsList = document.getElementById('contactsList');
     this.contactSearchInput = document.getElementById('contactSearchInput');
-    this.addContactForm = setupContactForm({
-      session: () => myAccount,
-      add: ({ address, name }) => {
-        if (address === normalizeAddress(myAccount.keys.address)) throw new Error('This is your own wallet address.');
-        if (myData.contacts[address]) throw new Error('This contact already exists. Edit its name from contact details.');
-        createNewContact(address);
-        myData.contacts[address].name = name;
-        try { saveState(); }
-        catch (error) { delete myData.contacts[address]; throw error; }
-        void this.updateContactsList();
-        showToast('Contact added', 2000, 'success');
-      },
-    });
-
-    // Handle search input click that's on the contactsScreen
-    this.contactSearchInput.addEventListener('click', () => {
-      contactSearchModal.open();
-    });
   }
 
   open() {
@@ -2126,7 +2118,7 @@ class ContactsScreen {
   }
 
   close() {
-    this.addContactForm?.close();
+    connectionUI.close();
     this.screen.classList.remove('active');
   }
 
@@ -2135,102 +2127,7 @@ class ContactsScreen {
   }
 
   // Update contacts list UI
-  async updateContactsList() {
-    const contacts = myData.contacts;
-
-    if (Object.keys(contacts).length === 0) {
-      this.contactsList.innerHTML = '<li class="empty-state">No contacts yet. Use + to add a contact.</li>';
-      return;
-    }
-
-    // Convert contacts object to array, filter out faucet address, and sort
-    const contactsArray = Object.values(contacts).filter(
-      (contact) => !isFaucetAddress(contact.address)
-    );
-
-    // Split into status groups in a single pass
-    const statusGroups = contactsArray.reduce(
-      (acc, contact) => {
-        // 0 = blocked, 1 = Other, 2 = Connection
-        switch (contact.friend) {
-          case 0:
-            acc.blocked.push(contact);
-            break;
-          case 3: // legacy friend status treated as connection
-          case 2:
-            acc.acquaintances.push(contact);
-            break;
-          default:
-            acc.others.push(contact);
-        }
-        return acc;
-      },
-      { others: [], acquaintances: [], blocked: [] }
-    );
-
-    // Sort each group by name first, then by username if name is not available
-    const sortByName = (a, b) => {
-      const nameA = a.name || a.username || '';
-      const nameB = b.name || b.username || '';
-      return nameA.localeCompare(nameB);
-    };
-    Object.values(statusGroups).forEach((group) => group.sort(sortByName));
-
-    // Group metadata for rendering
-    const groupMeta = [
-      { key: 'acquaintances', label: 'Connections', itemClass: 'chat-item' },
-      { key: 'others', label: 'Contacts', itemClass: 'chat-item' },
-      { key: 'blocked', label: 'Blocked', itemClass: 'chat-item blocked' },
-    ];
-
-    // Helper to check if contact is incomplete (missing public keys)
-    const isContactIncomplete = (contact) => !contact.public;
-
-    // Helper to render a contact item
-    const renderContactItem = async (contact, itemClass) => {
-      const avatarHtml = await getContactAvatarHtml(contact);
-      const contactName = getContactDisplayName(contact);
-      const incompleteIndicator = isContactIncomplete(contact) 
-        ? '<span class="contact-incomplete" title="Incomplete contact"></span>' 
-        : '';
-      return `
-            <li class="${itemClass}">
-                <div class="chat-avatar">${avatarHtml}</div>
-                <div class="chat-content">
-                    <div class="chat-header">
-                        <div class="chat-name">${incompleteIndicator}${escapeHtml(contactName)}</div>
-                    </div>
-                    <div class="contact-list-info">
-                        ${escapeHtml(contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`)}
-                    </div>
-                </div>
-            </li>
-        `;
-    };
-
-    // Build HTML for all sections
-    let html = '';
-    let allContacts = [];
-    for (const { key, label, itemClass } of groupMeta) {
-      const group = statusGroups[key];
-      if (group.length > 0) {
-        html += `<div class="contact-section-header">${label}</div>`;
-        const items = await Promise.all(group.map((contact) => renderContactItem(contact, itemClass)));
-        html += items.join('');
-        allContacts = allContacts.concat(group);
-      }
-    }
-
-    this.contactsList.innerHTML = html;
-
-    // Add click handlers to contact items
-    this.contactsList.querySelectorAll('.chat-item').forEach((item, index) => {
-      const contact = allContacts[index];
-      item.onclick = () => {
-        contactInfoModal.open(createDisplayInfo(contact));
-      };
-    });
-  }
+  async updateContactsList() { return connectionUI.refresh(); }
 }
 
 const contactsScreen = new ContactsScreen();
@@ -39508,7 +39405,7 @@ const fullImageCache = new FullImageCache(thumbnailCache);
 
 
 // Keep signing inside the existing account boundary. UI modules receive public identity only.
-const winWorkspace = createWinWorkspace({
+const winWorkspaceAPI = {
   navigate: (view, id) => footer.navigation.navigate(view, id),
   session: () => myAccount?.keys ? { address: longAddress(myAccount.keys.address), evmAddress: '0x' + normalizeAddress(myAccount.keys.address), networkId: network.netid } : null,
   read: path => queryNetwork(path, AbortSignal.timeout(15000)),
@@ -39553,7 +39450,8 @@ const winWorkspace = createWinWorkspace({
     }
     return { txId, status: 'pending' };
   },
-});
+};
+const winWorkspace = createWinWorkspace(winWorkspaceAPI);
 
 
 const bridgeSession = () => myAccount?.keys ? { address: longAddress(myAccount.keys.address), evmAddress: '0x'+normalizeAddress(myAccount.keys.address), networkId: network.netid } : null;
@@ -39644,5 +39542,74 @@ const bridgeUI = createBridgeUI({
     if (result?.result?.success === false && !result.transportFailure) {
       delete op.nativeTx; saveBridgeOperation(op); throw new Error(result.result.reason || 'Native transaction rejected. Continue to retry.');
     }
+  },
+});
+
+// Feed signatures are domain-separated from transactions and remain inside the account boundary.
+let feedIdentityAccount = null;
+let feedIdentity = null;
+function feedSession() {
+  if (!myAccount?.keys) return null;
+  if (feedIdentityAccount !== myAccount || feedIdentity?.networkId !== network.netid) {
+    feedIdentityAccount = myAccount;
+    feedIdentity = { address: normalizeAddress(myAccount.keys.address), networkId: network.netid };
+  }
+  return feedIdentity;
+}
+const feedRequest = createFeedTransport({
+  session: feedSession,
+  async sign(message, identity) {
+    if (identity !== feedSession() || !message.startsWith('WIN Feed v1\n')) throw new Error('Feed signing session changed.');
+    const account = myAccount;
+    const sig = await signMessage(hex2bin(ethHashMessage(message)), hex2bin(account.keys.secret));
+    if (myAccount !== account || feedSession() !== identity) throw new Error('Feed signing session changed.');
+    return '0x' + sig.r.toString(16).padStart(64, '0') + sig.s.toString(16).padStart(64, '0') + (27 + sig.recovery).toString(16).padStart(2, '0');
+  },
+});
+let profileContext = { account: null, profiles: [], selected: null };
+async function ensureSocialProfile() {
+  const account = myAccount;
+  if (!account?.keys) throw new Error('Sign in first.');
+  const records = []; let cursor = ''; const seen = new Set();
+  do {
+    const page = await queryNetwork('/profiles?owner=' + longAddress(account.keys.address) + '&limit=100' + (cursor ? '&cursor=' + cursor : ''));
+    if (myAccount !== account) throw new Error('Wallet changed.');
+    if (!Array.isArray(page?.records)) throw new Error('Unable to load your profiles.');
+    records.push(...page.records); cursor = page.nextCursor;
+    if (cursor && (seen.has(cursor) || records.length > 1000)) throw new Error('Too many profiles.'); seen.add(cursor);
+  } while (cursor);
+  const previous = profileContext.account === account ? profileContext.selected : null;
+  profileContext = { account, profiles: records, selected: records.some(p => p.id === previous) ? previous : records[0]?.id || null };
+}
+function selectSocialProfile(id) {
+  if (!profileContext.profiles.some(p => p.id === id)) throw new Error('Select one of your profiles.');
+  profileContext.selected = id; contactFeed.reset();
+}
+const contactFeed = createContactFeed({
+  session: feedSession, contacts: () => myData?.contacts || {},
+  ensureProfile: ensureSocialProfile, profiles: () => profileContext.profiles, selected: () => profileContext.selected,
+  select: selectSocialProfile, profile: async id => (await queryNetwork('/profiles/' + id))?.record,
+  request: (action, data, signal) => feedRequest(action, { ...data, profileId: data.profileId || profileContext.selected }, signal),
+});
+const connectionUI = createConnectionsUI({
+  session: feedSession, ensureProfile: ensureSocialProfile, profiles: () => profileContext.profiles,
+  selected: () => profileContext.selected, select: selectSocialProfile, request: feedRequest,
+  read: path => queryNetwork(path, AbortSignal.timeout(15000)),
+  navigate: (view, id) => footer.navigation.navigate(view, id),
+  notify: message => showToast(message, 6000, 'info'), changed: () => contactFeed.reset(),
+  remember(profile) {
+    const address = normalizeAddress(profile.owner);
+    if (!myData.contacts[address]) {
+      createNewContact(address, undefined, 2); myData.contacts[address].name = profile.displayName;
+      try { saveState(); } catch (error) { delete myData.contacts[address]; throw error; }
+    }
+  },
+  details(profile) { const contact = myData.contacts[normalizeAddress(profile.owner)]; if (contact) contactInfoModal.open(createDisplayInfo(contact)); },
+  async transact(action, record, payload, description) {
+    const account = myAccount;
+    const tx = await winWorkspaceAPI.prepare('connection', action, record, payload);
+    if (myAccount !== account) throw new Error('Wallet changed.');
+    if (!window.confirm(description + '\nNetwork fee: ' + WinPayments.formatAtomic(tx.fee) + ' WIN.')) throw new Error('Connection action canceled.');
+    return winWorkspaceAPI.submit(tx);
   },
 });

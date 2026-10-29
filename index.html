@@ -110,6 +110,7 @@
       <aside id="winSidebar" class="win-sidebar" aria-label="Your WIN workspace">
         <div class="win-sidebar-card win-sidebar-brand"><img src="./media/win-logo.svg" alt="WIN Proof of Skill"><h2>Your work matters.</h2><p>A professional identity backed by proof.</p><button class="win-button" data-win-action="create-profile">+ Create profile</button></div>
         <nav class="win-sidebar-card" aria-label="Workspace pages">
+          <a href="#/feed" data-win-route="feed">Contact feed</a>
           <a href="#/profiles" data-win-route="profiles">Public profiles</a>
           <a href="#/contracts" data-win-route="contracts">Contracts</a>
           <a href="#/contacts" data-win-route="contacts">My contacts</a>
@@ -168,7 +169,7 @@
       </div>
 
       <div class="app-screen" id="contactsScreen">
-        <div class="win-contacts-heading"><div><span class="win-kicker">YOUR NETWORK</span><h1>Contacts</h1><p>Keep the people you work with close.</p></div><button type="button" id="winAddContact" class="win-button" aria-label="Add contact">+</button></div>
+        <div class="win-contacts-heading"><div><span class="win-kicker">YOUR NETWORK</span><h1>Contacts</h1><p>Connect through your profiles. Each request needs the other person’s acceptance.</p></div><button type="button" id="winAddContact" class="win-button" aria-label="Request connection">+</button></div>
         <!-- Add search bar for contacts -->
         <div class="search-bar-container" id="contactSearchBarContainer">
           <div class="search-bar">
@@ -295,6 +296,7 @@
       </section>
       <section class="app-screen win-screen" id="profileScreen" data-view="profile" aria-label="Public profile"><a href="#/profiles" data-win-route="profiles" class="win-back-link">← Public profiles</a><div id="winProfilePage" class="win-record-page"></div></section>
       <section class="app-screen win-screen" id="contractScreen" data-view="contract" aria-label="Contract details"><a href="#/contracts" data-win-route="contracts" class="win-back-link">← Contracts</a><div id="winContractPage" class="win-record-page"></div></section>
+      <section class="app-screen win-screen" id="feedScreen" data-view="feed" aria-label="Contact feed"><div id="winFeed"></div></section>
       <section class="app-screen win-screen" id="statisticsScreen" data-view="statistics" aria-label="Network statistics"><div class="win-page-heading"><div><span class="win-kicker">THE NETWORK AT A GLANCE</span><h1>Skills. People. Progress.</h1><p>Explore public records across the WIN community.</p></div><button class="win-button secondary" data-win-action="refresh">↻ Refresh statistics</button></div><div id="winStatistics" aria-live="polite"></div></section>
       <p id="winStatus" class="win-status" role="status" aria-live="polite"></p>
       <dialog id="winAddContactDialog" class="win-dialog" aria-labelledby="winAddContactTitle">
@@ -315,6 +317,7 @@
           <button class="nav-button" id="switchToChats" hidden inert data-win-retired="messaging">Chats</button>
           <button class="nav-button" id="switchToContacts">Contacts</button>
           <button class="nav-button" id="switchToWallet">Wallet</button>
+          <button class="nav-button" id="switchToFeed" data-win-view="feed">Feed</button>
           <button class="nav-button" id="switchToStatistics" data-win-view="statistics">Statistics</button>
         </div>
         <!-- set focus on last-item in the footer -->

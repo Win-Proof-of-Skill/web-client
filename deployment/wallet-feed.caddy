@@ -1,0 +1,10 @@
+# Import INSIDE the wallet's existing Caddy site block, alongside the existing
+# /api and /ws handlers. Keep the wallet website handler as the fallback.
+handle_path /feed-api/* {
+    request_body {
+        max_size 4MB
+    }
+    reverse_proxy 127.0.0.1:8790 {
+        header_up X-Real-IP {remote_host}
+    }
+}

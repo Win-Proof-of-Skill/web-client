@@ -7,9 +7,9 @@ export const WIN_TOKEN = Object.freeze({
 });
 export const REGISTRIES = Object.freeze(
   Object.fromEntries(
-    ['profile', 'contract', 'endorsement', 'score', 'skill'].map((type, i) => [
+    ['profile', 'contract', 'endorsement', 'score', 'skill', 'connection'].map((type, i) => [
       type,
-      String(i + 1) + '0'.repeat(63),
+      String(type === 'connection' ? 7 : i + 1) + '0'.repeat(63),
     ])
   )
 );

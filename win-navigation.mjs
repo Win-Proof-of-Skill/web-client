@@ -1,4 +1,4 @@
-const pages = new Set(['profiles', 'contracts', 'contacts', 'wallet', 'statistics']);
+const pages = new Set(['profiles', 'contracts', 'contacts', 'wallet', 'statistics', 'feed']);
 export function parseWinRoute(hash = '') {
   const match = String(hash).match(/^#\/(profiles|contracts)(?:\/([a-f0-9]{64}))?\/?$/i);
   if (match)
